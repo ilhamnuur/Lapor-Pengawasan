@@ -17,10 +17,19 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // Activity types table
+    db.run(`CREATE TABLE IF NOT EXISTS activity_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     // Reports table
     db.run(`CREATE TABLE IF NOT EXISTS reports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
+        activity_type_id INTEGER,
         kegiatan_pengawasan TEXT NOT NULL,
         tanggal_pelaksanaan DATE NOT NULL,
         hari_pelaksanaan TEXT NOT NULL,
@@ -30,7 +39,17 @@ db.serialize(() => {
         dokumen_visum_path TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (activity_type_id) REFERENCES activity_types (id)
+    )`);
+
+    // Report photos table
+    db.run(`CREATE TABLE IF NOT EXISTS report_photos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_id INTEGER,
+        photo_path TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (report_id) REFERENCES reports (id) ON DELETE CASCADE
     )`);
 
     // Insert default users with bcrypt hashed passwords
@@ -46,6 +65,16 @@ db.serialize(() => {
     
     db.run(`INSERT OR IGNORE INTO users (username, password, name, role) VALUES 
         ('pegawai2', ?, 'Siti Nurhaliza', 'pegawai')`, [defaultPassword]);
+
+    // Insert default activity types
+    db.run(`INSERT OR IGNORE INTO activity_types (name, description) VALUES 
+        ('Sensus Penduduk', 'Kegiatan sensus penduduk dan demografi')`);
+    
+    db.run(`INSERT OR IGNORE INTO activity_types (name, description) VALUES 
+        ('Survei Ekonomi', 'Kegiatan survei ekonomi dan bisnis')`);
+    
+    db.run(`INSERT OR IGNORE INTO activity_types (name, description) VALUES 
+        ('Survei Sosial', 'Kegiatan survei sosial dan budaya')`);
 });
 
 // Promisify database methods for easier async/await usage

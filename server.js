@@ -9,6 +9,7 @@ const reportRoutes = require('./routes/reports');
 const pdfRoutes = require('./routes/pdf');
 const userRoutes = require('./routes/users');
 const excelRoutes = require('./routes/excel');
+const activityTypeRoutes = require('./routes/activityTypes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/excel', excelRoutes);
+app.use('/api/activity-types', activityTypeRoutes);
 
 // Serve frontend
 app.get('/', (req, res) => {

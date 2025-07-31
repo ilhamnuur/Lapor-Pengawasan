@@ -194,6 +194,15 @@
                                 <span>Manajemen Role Pegawai</span>
                             </div>
                         </button>
+                        
+                        <button id="manageActivityTypesBtn" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors kepala-only hidden" data-view="manage-activity-types">
+                            <div class="flex items-center space-x-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-4H3m16 8H7m10 4H5"></path>
+                                </svg>
+                                <span>Daftar Kegiatan</span>
+                            </div>
+                        </button>
 
                     </nav>
                 </div>
@@ -335,6 +344,14 @@
                         <form id="createReportForm" enctype="multipart/form-data" class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="form-group">
+                                    <label for="activityType" class="block text-sm font-medium text-gray-700 mb-2">Jenis Kegiatan *</label>
+                                    <select id="activityType" name="activity_type_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Pilih Jenis Kegiatan</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
                                     <label for="kegiatanPengawasan" class="block text-sm font-medium text-gray-700 mb-2">Kegiatan Pengawasan *</label>
                                     <input type="text" id="kegiatanPengawasan" name="kegiatan_pengawasan" required
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -425,6 +442,14 @@
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="form-group">
+                                    <label for="editActivityType" class="block text-sm font-medium text-gray-700 mb-2">Jenis Kegiatan *</label>
+                                    <select id="editActivityType" name="activity_type_id" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Pilih Jenis Kegiatan</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
                                     <label for="editKegiatanPengawasan" class="block text-sm font-medium text-gray-700 mb-2">Kegiatan Pengawasan *</label>
                                     <input type="text" id="editKegiatanPengawasan" name="kegiatan_pengawasan" required
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -499,6 +524,45 @@
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+
+                <!-- Manage Activity Types View -->
+                <div id="manage-activity-typesView" class="view hidden">
+                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Daftar Kegiatan</h2>
+                            <p class="text-gray-600">Kelola jenis-jenis kegiatan pengawasan yang tersedia</p>
+                        </div>
+                        <button id="addActivityTypeBtn" class="btn-primary px-4 py-2 rounded-md">
+                            <div class="flex items-center space-x-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                <span>Tambah Jenis Kegiatan</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Activity Types Table -->
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Kegiatan</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Dibuat</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activityTypesTableBody" class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">Memuat data...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -636,6 +700,45 @@
         </div>
     </div>
 
+    <!-- Activity Type Modal -->
+    <div id="activityTypeModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 id="activityTypeModalTitle" class="text-lg font-medium text-gray-900">Tambah Jenis Kegiatan</h3>
+                <button id="closeActivityTypeModal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="activityTypeForm" class="space-y-4">
+                    <input type="hidden" id="activityTypeId" name="id">
+                    <div class="form-group">
+                        <label for="activityTypeName" class="block text-sm font-medium text-gray-700 mb-2">Nama Kegiatan *</label>
+                        <input type="text" id="activityTypeName" name="name" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Contoh: Sensus Penduduk">
+                    </div>
+                    <div class="form-group">
+                        <label for="activityTypeDescription" class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
+                        <textarea id="activityTypeDescription" name="description" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Deskripsi kegiatan (opsional)"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" id="cancelActivityTypeBtn" class="btn-secondary px-4 py-2 rounded-md">
+                            Batal
+                        </button>
+                        <button type="submit" class="btn-primary px-4 py-2 rounded-md">
+                            Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
     <div id="deleteConfirmModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
@@ -673,7 +776,10 @@
         let currentUser = null;
         let currentView = 'overview';
         let reports = [];
+        let activityTypes = [];
         let deleteReportId = null;
+        let deleteItemId = null;
+        let deleteItemType = null;
 
         // API Base URL
         const API_BASE = '/api';
@@ -731,11 +837,15 @@
             document.getElementById('refreshReportsBtn').addEventListener('click', loadReports);
             document.getElementById('printAllReportsBtn').addEventListener('click', printAllReports);
             document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+            document.getElementById('addActivityTypeBtn').addEventListener('click', () => showActivityTypeModal());
             
             // Modals
             document.getElementById('closeDetailModal').addEventListener('click', closeReportDetailModal);
+            document.getElementById('closeActivityTypeModal').addEventListener('click', closeActivityTypeModal);
+            document.getElementById('cancelActivityTypeBtn').addEventListener('click', closeActivityTypeModal);
+            document.getElementById('activityTypeForm').addEventListener('submit', handleActivityTypeForm);
             document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteConfirmModal);
-            document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDeleteReport);
+            document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
             
             // Auto-fill day when date is selected
             document.getElementById('tanggalPelaksanaan').addEventListener('change', autoFillDay);
@@ -885,6 +995,11 @@
                 loadReports();
             } else if (view === 'create-report') {
                 resetCreateForm();
+                loadActivityTypes();
+            } else if (view === 'edit-report') {
+                loadActivityTypes();
+            } else if (view === 'manage-activity-types') {
+                loadActivityTypes();
             } else if (view === 'manage-users') {
                 loadUsers();
             }
@@ -1483,6 +1598,7 @@
 
         function populateEditForm(report) {
             document.getElementById('editReportId').value = report.id;
+            document.getElementById('editActivityType').value = report.activity_type_id || '';
             document.getElementById('editKegiatanPengawasan').value = report.kegiatan_pengawasan;
             document.getElementById('editTanggalPelaksanaan').value = report.tanggal_pelaksanaan;
             document.getElementById('editHariPelaksanaan').value = report.hari_pelaksanaan;
@@ -1550,6 +1666,207 @@
             }
         }
 
+        // Activity Types functions
+        async function loadActivityTypes() {
+            try {
+                const response = await fetch(`${API_BASE}/activity-types`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    activityTypes = await response.json();
+                    updateActivityTypesDropdowns();
+                    if (currentView === 'manage-activity-types') {
+                        updateActivityTypesTable();
+                    }
+                } else {
+                    throw new Error('Failed to load activity types');
+                }
+            } catch (error) {
+                console.error('Error loading activity types:', error);
+                showMessage('Gagal memuat data jenis kegiatan', 'error');
+            }
+        }
+
+        function updateActivityTypesDropdowns() {
+            const createSelect = document.getElementById('activityType');
+            const editSelect = document.getElementById('editActivityType');
+            
+            const options = activityTypes.map(type => 
+                `<option value="${type.id}">${type.name}</option>`
+            ).join('');
+            
+            if (createSelect) {
+                createSelect.innerHTML = '<option value="">Pilih Jenis Kegiatan</option>' + options;
+            }
+            if (editSelect) {
+                editSelect.innerHTML = '<option value="">Pilih Jenis Kegiatan</option>' + options;
+            }
+        }
+
+        function updateActivityTypesTable() {
+            const tbody = document.getElementById('activityTypesTableBody');
+            
+            if (activityTypes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Belum ada jenis kegiatan</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = activityTypes.map(type => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${type.name}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">${type.description || '-'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${formatDate(type.created_at)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button onclick="editActivityType(${type.id})" class="text-yellow-600 hover:text-yellow-900">
+                            Edit
+                        </button>
+                        <button onclick="deleteActivityType(${type.id})" class="text-red-600 hover:text-red-900">
+                            Hapus
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function showActivityTypeModal(activityType = null) {
+            const modal = document.getElementById('activityTypeModal');
+            const title = document.getElementById('activityTypeModalTitle');
+            const form = document.getElementById('activityTypeForm');
+            
+            if (activityType) {
+                title.textContent = 'Edit Jenis Kegiatan';
+                document.getElementById('activityTypeId').value = activityType.id;
+                document.getElementById('activityTypeName').value = activityType.name;
+                document.getElementById('activityTypeDescription').value = activityType.description || '';
+            } else {
+                title.textContent = 'Tambah Jenis Kegiatan';
+                form.reset();
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeActivityTypeModal() {
+            const modal = document.getElementById('activityTypeModal');
+            modal.classList.add('hidden');
+            document.getElementById('activityTypeForm').reset();
+        }
+
+        async function handleActivityTypeForm(e) {
+            e.preventDefault();
+            showLoading();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                name: formData.get('name'),
+                description: formData.get('description')
+            };
+            
+            const id = formData.get('id');
+            const isEdit = id && id !== '';
+            
+            try {
+                const url = isEdit ? `${API_BASE}/activity-types/${id}` : `${API_BASE}/activity-types`;
+                const method = isEdit ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage(isEdit ? 'Jenis kegiatan berhasil diupdate!' : 'Jenis kegiatan berhasil ditambahkan!', 'success');
+                    closeActivityTypeModal();
+                    loadActivityTypes();
+                } else {
+                    showMessage(result.message || 'Gagal menyimpan jenis kegiatan', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving activity type:', error);
+                showMessage('Terjadi kesalahan saat menyimpan jenis kegiatan', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function editActivityType(id) {
+            const activityType = activityTypes.find(type => type.id === id);
+            if (activityType) {
+                showActivityTypeModal(activityType);
+            }
+        }
+
+        function deleteActivityType(id) {
+            deleteItemId = id;
+            deleteItemType = 'activity-type';
+            const modal = document.getElementById('deleteConfirmModal');
+            modal.querySelector('p').textContent = 'Apakah Anda yakin ingin menghapus jenis kegiatan ini?';
+            modal.classList.remove('hidden');
+        }
+
+        async function confirmDelete() {
+            closeDeleteConfirmModal();
+            showLoading();
+            
+            try {
+                let response;
+                if (deleteItemType === 'activity-type') {
+                    response = await fetch(`${API_BASE}/activity-types/${deleteItemId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        showMessage('Jenis kegiatan berhasil dihapus!', 'success');
+                        loadActivityTypes();
+                    } else {
+                        const data = await response.json();
+                        showMessage(data.message || 'Gagal menghapus jenis kegiatan', 'error');
+                    }
+                } else {
+                    // Handle report deletion
+                    response = await fetch(`${API_BASE}/reports/${deleteReportId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        showMessage('Laporan berhasil dihapus!', 'success');
+                        loadReports();
+                    } else {
+                        throw new Error('Failed to delete report');
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting item:', error);
+                showMessage('Gagal menghapus item', 'error');
+            } finally {
+                hideLoading();
+                deleteItemId = null;
+                deleteItemType = null;
+            }
+        }
+
+
         // Global functions for onclick handlers
         window.viewReportDetail = viewReportDetail;
         window.editReport = editReport;
@@ -1557,6 +1874,8 @@
         window.printReport = printReport;
         window.printAllReports = printAllReports;
         window.exportToExcel = exportToExcel;
+        window.editActivityType = editActivityType;
+        window.deleteActivityType = deleteActivityType;
     </script>
     <script src="users.js"></script>
 </body>
