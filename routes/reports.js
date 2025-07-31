@@ -147,6 +147,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
         }
 
+        // Get foto dokumentasi for this report
+        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+        result.foto_dokumentasi = photos.map(photo => photo.photo_path);
+
         res.json(result);
     } catch (error) {
         console.error(error);

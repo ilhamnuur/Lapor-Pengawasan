@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const reportRoutes = require('./routes/reports');
 const pdfRoutes = require('./routes/pdf');
 const userRoutes = require('./routes/users');
+const excelRoutes = require('./routes/excel');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/excel', excelRoutes);
 
 // Serve frontend
 app.get('/', (req, res) => {

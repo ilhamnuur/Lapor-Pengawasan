@@ -38,15 +38,16 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         
         // Get photos for the report
         const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+        report.foto_dokumentasi = photos.map(photo => photo.photo_path);
         
         // Generate photos HTML for second page
         let photosHTML = '';
-        if (photos && photos.length > 0) {
-            const photoElements = photos.map(photo => {
-                const photoPath = path.resolve('uploads', photo.photo_path);
+        if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
+            const photoElements = report.foto_dokumentasi.map(photoPath => {
+                const fullPath = path.resolve('uploads', photoPath);
                 return `<div class="photo-item">
-                    <img src="file://${photoPath}" alt="Foto Dokumentasi">
-                    <p class="photo-caption">${photo.photo_path}</p>
+                    <img src="file://${fullPath}" alt="Foto Dokumentasi">
+                    <p class="photo-caption">${photoPath}</p>
                 </div>`;
             }).join('');
 

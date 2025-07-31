@@ -49,4 +49,64 @@ router.post('/', async (req, res) => {
     }
 });
 
+// PUT /api/users/:id - update user
+router.put('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, name, password, role } = req.body;
+        
+        // Check if user exists
+        const existingUser = await db.get('SELECT id FROM users WHERE id = ?', [id]);
+        if (!existingUser) {
+            return res.status(404).json({ message: 'User tidak ditemukan' });
+        }
+        
+        // If password is provided, hash it
+        let updateQuery = 'UPDATE users SET username = ?, name = ?, role = ?';
+        const updateParams = [username, name, role];
+        
+        if (password && password.trim() !== '') {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            updateQuery = 'UPDATE users SET username = ?, name = ?, password = ?, role = ?';
+            updateParams.splice(2, 0, hashedPassword);
+        }
+        
+        updateQuery += ' WHERE id = ?';
+        updateParams.push(id);
+        
+        await db.run(updateQuery, updateParams);
+        
+        res.json({ message: 'User berhasil diupdate' });
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// DELETE /api/users/:id - delete user
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Check if user exists
+        const existingUser = await db.get('SELECT id FROM users WHERE id = ?', [id]);
+        if (!existingUser) {
+            return res.status(404).json({ message: 'User tidak ditemukan' });
+        }
+        
+        // Prevent deleting the current user (admin)
+        if (req.user.id == id) {
+            return res.status(400).json({ message: 'Tidak dapat menghapus akun sendiri' });
+        }
+        
+        // Delete user
+        await db.run('DELETE FROM users WHERE id = ?', [id]);
+        
+        res.json({ message: 'User berhasil dihapus' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 module.exports = router;
