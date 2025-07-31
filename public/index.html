@@ -19,6 +19,10 @@
                 transform: translateX(-100%);
                 transition: transform 0.3s ease-in-out;
             }
+            
+            .sidebar.sidebar-active {
+                transform: translateX(0);
+            }
         }
         
         .modal {
@@ -147,7 +151,7 @@
 
         <div class="flex">
             <!-- Sidebar -->
-            <aside id="sidebar" class="sidebar fixed md:relative md:translate-x-0 w-64 h-screen bg-white shadow-lg z-40">
+            <aside id="sidebar" class="sidebar sidebar-hidden fixed md:relative md:translate-x-0 w-64 h-screen bg-white shadow-lg z-40">
                 <div class="p-6">
                     <div class="flex items-center space-x-3 mb-6">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Lambang_Badan_Pusat_Statistik_%28BPS%29_Indonesia.svg/1726px-Lambang_Badan_Pusat_Statistik_%28BPS%29_Indonesia.svg.png" alt="Logo BPS dengan desain modern berwarna biru" class="h-10 w-10">
@@ -902,9 +906,13 @@
             const sidebar = document.getElementById('sidebar');
             const sidebarToggle = document.getElementById('sidebarToggle');
             
+            // Check if click is on a navigation button
+            const isNavButton = event.target.closest('.nav-btn');
+            
             if (window.innerWidth <= 768 && 
                 !sidebar.contains(event.target) && 
                 !sidebarToggle.contains(event.target) &&
+                !isNavButton &&
                 sidebar.classList.contains('sidebar-active')) {
                 toggleSidebar();
             }
@@ -1411,7 +1419,7 @@
 
         async function loadUsers() {
             const usersTableBody = document.getElementById('usersTableBody');
-            usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Memuat data...</td></tr>';
+            usersTableBody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Memuat data...</td></tr>';
             try {
                 const response = await fetch(`${API_BASE}/users`, {
                     headers: {
@@ -1421,7 +1429,7 @@
                 if (response.ok) {
                     const users = await response.json();
                     if (users.length === 0) {
-                        usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Belum ada pengguna</td></tr>';
+                        usersTableBody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Belum ada pengguna</td></tr>';
                         return;
                     }
                     usersTableBody.innerHTML = users.map(user => `
@@ -1429,14 +1437,22 @@
                             <td class="px-6 py-4 whitespace-nowrap">${user.username}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${user.name}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${user.role.charAt(0).toUpperCase() + user.role.slice(1)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                <button onclick="editUser(${user.id})" class="text-yellow-600 hover:text-yellow-900">
+                                    Edit
+                                </button>
+                                <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-900">
+                                    Hapus
+                                </button>
+                            </td>
                         </tr>
                     `).join('');
                 } else {
-                    usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Gagal memuat data pengguna</td></tr>';
+                    usersTableBody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Gagal memuat data pengguna</td></tr>';
                 }
             } catch (error) {
                 console.error('Error loading users:', error);
-                usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Terjadi kesalahan saat memuat data pengguna</td></tr>';
+                usersTableBody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Terjadi kesalahan saat memuat data pengguna</td></tr>';
             }
         }
 
