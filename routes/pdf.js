@@ -1,0 +1,370 @@
+const express = require('express');
+const puppeteer = require('puppeteer');
+const path = require('path');
+const db = require('../config/database-sqlite');
+const { authenticateToken } = require('../middleware/auth');
+const router = express.Router();
+
+// Generate PDF for single report
+router.get('/report/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        let query;
+        let params;
+
+        if (req.user.role === 'kepala') {
+            query = `
+                SELECT r.*, u.name as pegawai_name 
+                FROM reports r 
+                JOIN users u ON r.user_id = u.id 
+                WHERE r.id = ?
+            `;
+            params = [id];
+        } else {
+            query = `
+                SELECT r.*, u.name as pegawai_name 
+                FROM reports r 
+                JOIN users u ON r.user_id = u.id 
+                WHERE r.id = ? AND r.user_id = ?
+            `;
+            params = [id, req.user.id];
+        }
+
+        const report = await db.get(query, params);
+        
+        if (!report) {
+            return res.status(404).json({ message: 'Laporan tidak ditemukan' });
+        }
+        
+        // Get photos for the report
+        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+        
+        // Generate photos HTML for second page
+        let photosHTML = '';
+        if (photos && photos.length > 0) {
+            const photoElements = photos.map(photo => {
+                const photoPath = path.resolve('uploads', photo.photo_path);
+                return `<div class="photo-item">
+                    <img src="file://${photoPath}" alt="Foto Dokumentasi">
+                    <p class="photo-caption">${photo.photo_path}</p>
+                </div>`;
+            }).join('');
+
+            photosHTML = `
+            <div class="page-break"></div>
+            <div class="documentation-page">
+                <div class="documentation-header">
+                    <h2>DOKUMENTASI PENGAWASAN</h2>
+                </div>
+                <div class="photos-grid">
+                    ${photoElements}
+                </div>
+            </div>`;
+        }
+
+        // Generate attachments HTML
+        let attachmentsHTML = '';
+        const attachments = [];
+        
+        if (report.surat_tugas_path) {
+            attachments.push({ name: 'Surat Tugas', path: report.surat_tugas_path });
+        }
+        
+        if (report.dokumen_visum_path) {
+            attachments.push({ name: 'Dokumen Visum', path: report.dokumen_visum_path });
+        }
+
+        if (attachments.length > 0) {
+            const attachmentElements = attachments.map(att => {
+                const filePath = path.resolve('uploads', att.path);
+                const ext = path.extname(att.path).toLowerCase();
+                
+                if (['.jpg', '.jpeg', '.png'].includes(ext)) {
+                    return `<div class="attachment-item">
+                        <h4>${att.name}</h4>
+                        <img src="file://${filePath}" alt="${att.name}" style="max-width: 100%; height: auto;">
+                    </div>`;
+                } else {
+                    return `<div class="attachment-item">
+                        <h4>${att.name}</h4>
+                        <p>File: ${att.path}</p>
+                        <p><em>Dokumen tidak dapat ditampilkan dalam PDF (${ext})</em></p>
+                    </div>`;
+                }
+            }).join('');
+
+            if (attachmentElements) {
+                attachmentsHTML = `
+                <div class="page-break"></div>
+                <div class="attachments-page">
+                    <div class="attachments-header">
+                        <h2>LAMPIRAN DOKUMEN</h2>
+                    </div>
+                    <div class="attachments-content">
+                        ${attachmentElements}
+                    </div>
+                </div>`;
+            }
+        }
+
+        let htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Laporan Kegiatan Pengawasan</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    .header h1 { margin: 0; font-size: 18px; font-weight: bold; }
+                    .header h2 { margin: 5px 0; font-size: 16px; }
+                    .content { margin: 20px 0; }
+                    .field { margin-bottom: 15px; }
+                    .field label { font-weight: bold; display: inline-block; width: 200px; }
+                    .field span { margin-left: 10px; }
+                    .signature { margin-top: 50px; text-align: right; }
+                    .signature-box { display: inline-block; text-align: center; }
+                    .page-break { page-break-before: always; }
+                    .documentation-page, .attachments-page { margin-top: 40px; }
+                    .documentation-header, .attachments-header { 
+                        text-align: center; 
+                        margin-bottom: 30px; 
+                        border-bottom: 2px solid #333; 
+                        padding-bottom: 15px; 
+                    }
+                    .documentation-header h2, .attachments-header h2 { 
+                        font-size: 18px; 
+                        font-weight: bold; 
+                        margin: 0; 
+                    }
+                    .photos-grid { 
+                        display: grid; 
+                        grid-template-columns: repeat(2, 1fr); 
+                        gap: 20px; 
+                        margin-top: 20px; 
+                    }
+                    .photo-item { 
+                        text-align: center; 
+                        page-break-inside: avoid; 
+                    }
+                    .photo-item img { 
+                        max-width: 100%; 
+                        max-height: 300px; 
+                        border: 1px solid #ddd; 
+                        border-radius: 4px; 
+                    }
+                    .photo-caption { 
+                        font-size: 12px; 
+                        color: #666; 
+                        margin-top: 5px; 
+                    }
+                    .attachments-content { margin-top: 20px; }
+                    .attachment-item { 
+                        margin-bottom: 30px; 
+                        page-break-inside: avoid; 
+                    }
+                    .attachment-item h4 { 
+                        font-size: 16px; 
+                        font-weight: bold; 
+                        margin-bottom: 10px; 
+                        color: #333; 
+                    }
+                    .attachment-item img { 
+                        border: 1px solid #ddd; 
+                        border-radius: 4px; 
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>BADAN PUSAT STATISTIK</h1>
+                    <h2>KABUPATEN TUBAN</h2>
+                    <h2>LAPORAN KEGIATAN PENGAWASAN LAPANGAN</h2>
+                </div>
+                
+                <div class="content">
+                    <div class="field">
+                        <label>Nama Pegawai:</label>
+                        <span>${report.pegawai_name}</span>
+                    </div>
+                    <div class="field">
+                        <label>Kegiatan Pengawasan:</label>
+                        <span>${report.kegiatan_pengawasan}</span>
+                    </div>
+                    <div class="field">
+                        <label>Tanggal Pelaksanaan:</label>
+                        <span>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</span>
+                    </div>
+                    <div class="field">
+                        <label>Hari Pelaksanaan:</label>
+                        <span>${report.hari_pelaksanaan}</span>
+                    </div>
+                    <div class="field">
+                        <label>Aktivitas yang Dilakukan:</label>
+                        <span>${report.aktivitas}</span>
+                    </div>
+                    <div class="field">
+                        <label>Permasalahan:</label>
+                        <span>${report.permasalahan || 'Tidak ada permasalahan'}</span>
+                    </div>
+                    <div class="field">
+                        <label>Surat Tugas:</label>
+                        <span>${report.surat_tugas_path ? 'Tersedia' : 'Tidak ada'}</span>
+                    </div>
+                    <div class="field">
+                        <label>Dokumen Visum:</label>
+                        <span>${report.dokumen_visum_path ? 'Tersedia' : 'Tidak ada'}</span>
+                    </div>
+                </div>
+                
+                <div class="signature">
+                    <div class="signature-box">
+                        <p>Tuban, ${new Date().toLocaleDateString('id-ID')}</p>
+                        <p>Pelapor,</p>
+                        <br><br><br>
+                        <p><u>${report.pegawai_name}</u></p>
+                    </div>
+                </div>
+
+                ${photosHTML}
+                ${attachmentsHTML}
+            </body>
+            </html>
+        `;
+        
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await page.setContent(htmlContent);
+        
+        const pdf = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+                top: '20mm',
+                right: '15mm',
+                bottom: '20mm',
+                left: '15mm'
+            }
+        });
+        
+        await browser.close();
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Laporan_${report.pegawai_name}_${report.tanggal_pelaksanaan}.pdf"`);
+        res.send(pdf);
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Generate PDF for all reports (Kepala only)
+router.get('/all-reports', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'kepala') {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const reports = await db.all(`
+            SELECT r.*, u.name as pegawai_name 
+            FROM reports r 
+            JOIN users u ON r.user_id = u.id 
+            ORDER BY r.created_at DESC
+        `);
+
+        const htmlContent = generateAllReportsHTML(reports);
+        
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await page.setContent(htmlContent);
+        
+        const pdf = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+                top: '20mm',
+                right: '15mm',
+                bottom: '20mm',
+                left: '15mm'
+            }
+        });
+        
+        await browser.close();
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Laporan_Semua_Kegiatan_Pengawasan.pdf"`);
+        res.send(pdf);
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+function generateAllReportsHTML(reports) {
+    const reportRows = reports.map(report => `
+        <tr>
+            <td>${report.pegawai_name}</td>
+            <td>${report.kegiatan_pengawasan}</td>
+            <td>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</td>
+            <td>${report.hari_pelaksanaan}</td>
+            <td>${report.aktivitas.substring(0, 100)}${report.aktivitas.length > 100 ? '...' : ''}</td>
+            <td>${report.permasalahan ? report.permasalahan.substring(0, 100) + (report.permasalahan.length > 100 ? '...' : '') : 'Tidak ada'}</td>
+        </tr>
+    `).join('');
+
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Laporan Semua Kegiatan Pengawasan</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 12px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .header h1 { margin: 0; font-size: 16px; font-weight: bold; }
+                .header h2 { margin: 5px 0; font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                th { background-color: #f0f0f0; font-weight: bold; }
+                .signature { margin-top: 50px; text-align: right; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>BADAN PUSAT STATISTIK</h1>
+                <h2>KABUPATEN TUBAN</h2>
+                <h2>LAPORAN SEMUA KEGIATAN PENGAWASAN LAPANGAN</h2>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nama Pegawai</th>
+                        <th>Kegiatan Pengawasan</th>
+                        <th>Tanggal</th>
+                        <th>Hari</th>
+                        <th>Aktivitas</th>
+                        <th>Permasalahan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${reportRows}
+                </tbody>
+            </table>
+            
+            <div class="signature">
+                <div class="signature-box">
+                    <p>Tuban, ${new Date().toLocaleDateString('id-ID')}</p>
+                    <p>Kepala BPS Kabupaten Tuban,</p>
+                    <br><br><br>
+                    <p><u>_________________</u></p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+}
+
+module.exports = router;

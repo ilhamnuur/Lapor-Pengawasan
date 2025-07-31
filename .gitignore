@@ -1,0 +1,14 @@
+# Environment variables
+.env
+
+# Database
+database/*.db
+
+# Node modules (jika tidak ingin mengunggah node_modules)
+node_modules/
+
+# Log files
+*.log
+
+# Uploaded files (jika tidak ingin mengunggah file upload)
+uploads/

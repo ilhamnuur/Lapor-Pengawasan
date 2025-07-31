@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPS Tuban - Sistem Pelaporan Pengawasan Lapangan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .sidebar-active {
+            transform: translateX(0);
+        }
+        
+        .sidebar-hidden {
+            transform: translateX(-100%);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+        }
+        
+        .modal {
+            backdrop-filter: blur(4px);
+        }
+        
+        .loading {
+            border-top-color: #3498db;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        
+        .btn-danger {
+            background-color: #dc2626;
+            color: white;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-danger:hover {
+            background-color: #b91c1c;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+            <div class="loading border-4 border-gray-200 rounded-full w-8 h-8"></div>
+            <span class="text-gray-700">Memuat...</span>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800">
+        <div class="max-w-md w-full mx-4">
+            <div class="bg-white rounded-lg shadow-xl p-8">
+                <!-- Header with Logo -->
+                <div class="text-center mb-8">
+                    <div class="mx-auto mb-4">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Lambang_Badan_Pusat_Statistik_%28BPS%29_Indonesia.svg/1726px-Lambang_Badan_Pusat_Statistik_%28BPS%29_Indonesia.svg.png" alt="Logo BPS Kabupaten Tuban" class="mx-auto h-24 w-24">
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-900">BPS Kabupaten Tuban</h1>
+                    <p class="text-gray-600 mt-2">Sistem Pelaporan Pengawasan Lapangan</p>
+                </div>
+
+                <!-- Login Form -->
+                <form id="loginForm" class="space-y-6">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                        <input type="text" id="username" name="username" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="password" name="password" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+
+                    <button type="submit" class="w-full btn-primary py-3 px-4 rounded-md font-medium">
+                        Masuk
+                    </button>
+                </form>
+
+                <!-- Demo Credentials (Remove in production!) -->
+                <div class="mt-6 p-4 bg-gray-50 rounded-md">
+                    <p class="text-sm text-gray-600 font-medium mb-2">Demo Login:</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <p><strong>Kepala:</strong> admin_kepala / [redacted]</p>
+                        <p><strong>Pegawai:</strong> pegawai1 / [redacted]</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Header --> 
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center space-x-4">
+                    <button id="sidebarToggle" class="md:hidden p-2 rounded-md hover:bg-gray-100">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                    <h1 class="text-xl font-semibold text-gray-900">Sistem Pelaporan Pengawasan BPS Tuban</h1>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <span id="userInfo" class="text-gray-700"></span>
+                    <button id="logoutBtn" class="btn-secondary px-4 py-2 rounded-md text-sm">
+                        Keluar
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex">
+            <!-- Sidebar -->
+            <aside id="sidebar" class="sidebar fixed md:relative md:translate-x-0 w-64 h-screen bg-white shadow-lg z-40">
+                <div class="p-6">
+                    <div class="flex items-center space-x-3 mb-6">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Lambang_Badan_Pusat_Statistik_%28BPS%29_Indonesia.svg/1726px-Lambang_Badan_Pusat_Statistik_%28BPS%29_Indonesia.svg.png" alt="Logo BPS dengan desain modern berwarna biru" class="h-10 w-10">
+                        <span class="font-semibold text-gray-900">Sistem Pelaporan</span>
+                    </div>
+                    
+                    <nav class="space-y-2">
+                        <button class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors" data-view="overview">
+                            <div class="flex items-center space-x-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                <span>Ringkasan</span>
+                            </div>
+                        </button>
+                        
+                        <button class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors" data-view="reports">
+                            <div class="flex items-center space-x-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <span>Laporan Pengawasan</span>
+                            </div>
+                        </button>
+                        
+                        <button id="createReportBtn" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors pegawai-only hidden" data-view="create-report">
+                            <div class="flex items-center space-x-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                <span>Buat Laporan Baru</span>
+                            </div>
+                        </button>
+
+                        <button id="manageUsersBtn" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors kepala-only hidden" data-view="manage-users">
+                            <div class="flex items-center space-x-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                <span>Manajemen Role Pegawai</span>
+                            </div>
+                        </button>
+
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-6 md:ml-0 ml-0">
+                <!-- Overview View -->
+                <div id="overviewView" class="view">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Ringkasan Kegiatan</h2>
+                        <p class="text-gray-600">Selamat datang di sistem pelaporan pengawasan lapangan BPS Kabupaten Tuban</p>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-blue-100 mr-4">
+                                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Laporan</p>
+                                    <p id="totalReports" class="text-2xl font-semibold text-gray-900">-</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-green-100 mr-4">
+                                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v6a2 2 0 002 2zm1 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H8a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Laporan Bulan Ini</p>
+                                    <p id="monthlyReports" class="text-2xl font-semibold text-gray-900">-</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow p-6 kepala-only hidden">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-yellow-100 mr-4">
+                                    <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Pegawai Aktif</p>
+                                    <p id="activePegawai" class="text-2xl font-semibold text-gray-900">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Reports -->
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">Laporan Terbaru</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="recentReportsTable">
+                                <p class="text-gray-500 text-center py-4">Memuat data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports View -->
+                <div id="reportsView" class="view hidden">
+                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Daftar Laporan Pengawasan</h2>
+                            <p class="text-gray-600">Kelola semua laporan kegiatan pengawasan lapangan</p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                            <button id="printAllReportsBtn" class="kepala-only hidden btn-secondary px-4 py-2 rounded-md">
+                                <div class="flex items-center space-x-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H3a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                    </svg>
+                                    <span>Cetak Semua</span>
+                                </div>
+                            </button>
+                            <button id="refreshReportsBtn" class="btn-primary px-4 py-2 rounded-md">
+                                <div class="flex items-center space-x-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    <span>Refresh</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Reports Table -->
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pegawai</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kegiatan</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportsTableBody" class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">Memuat data...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Report View -->
+                <div id="create-reportView" class="view hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Buat Laporan Pengawasan Baru</h2>
+                        <p class="text-gray-600">Isi form berikut untuk membuat laporan kegiatan pengawasan lapangan</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <form id="createReportForm" enctype="multipart/form-data" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="form-group">
+                                    <label for="kegiatanPengawasan" class="block text-sm font-medium text-gray-700 mb-2">Kegiatan Pengawasan *</label>
+                                    <input type="text" id="kegiatanPengawasan" name="kegiatan_pengawasan" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Contoh: Pengawasan Sensus Penduduk 2024">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="tanggalPelaksanaan" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Pelaksanaan *</label>
+                                    <input type="date" id="tanggalPelaksanaan" name="tanggal_pelaksanaan" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="hariPelaksanaan" class="block text-sm font-medium text-gray-700 mb-2">Hari Pelaksanaan *</label>
+                                <select id="hariPelaksanaan" name="hari_pelaksanaan" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Pilih Hari</option>
+                                    <option value="Senin">Senin</option>
+                                    <option value="Selasa">Selasa</option>
+                                    <option value="Rabu">Rabu</option>
+                                    <option value="Kamis">Kamis</option>
+                                    <option value="Jumat">Jumat</option>
+                                    <option value="Sabtu">Sabtu</option>
+                                    <option value="Minggu">Minggu</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="aktivitas" class="block text-sm font-medium text-gray-700 mb-2">Aktivitas yang Dilakukan *</label>
+                                <textarea id="aktivitas" name="aktivitas" rows="4" required
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder="Jelaskan secara detail aktivitas yang dilakukan selama pengawasan..."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="permasalahan" class="block text-sm font-medium text-gray-700 mb-2">Permasalahan yang Terjadi</label>
+                                <textarea id="permasalahan" name="permasalahan" rows="3"
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder="Jelaskan permasalahan yang terjadi (jika ada)..."></textarea>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="form-group">
+                                    <label for="suratTugas" class="block text-sm font-medium text-gray-700 mb-2">Upload Surat Tugas</label>
+                                    <input type="file" id="suratTugas" name="surat_tugas" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="text-sm text-gray-500 mt-1">Format: PDF, JPG, PNG, DOC, DOCX (Max: 5MB)</p>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="dokumenVisum" class="block text-sm font-medium text-gray-700 mb-2">Upload Dokumen Visum</label>
+                                    <input type="file" id="dokumenVisum" name="dokumen_visum" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="text-sm text-gray-500 mt-1">Format: PDF, JPG, PNG, DOC, DOCX (Max: 5MB)</p>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="fotoDokumentasi" class="block text-sm font-medium text-gray-700 mb-2">Upload Foto Dokumentasi</label>
+                                <input type="file" id="fotoDokumentasi" name="foto_dokumentasi" accept=".jpg,.jpeg,.png" multiple
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p class="text-sm text-gray-500 mt-1">Format: JPG, JPEG, PNG (Max: 5MB per file)</p>
+                            </div>
+
+                            <div class="flex justify-end space-x-4 pt-4">
+                                <button type="button" id="cancelCreateBtn" class="btn-secondary px-6 py-3 rounded-md">
+                                    Batal
+                                </button>
+                                <button type="submit" class="btn-primary px-6 py-3 rounded-md">
+                                    Simpan Laporan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Edit Report View -->
+                <div id="edit-reportView" class="view hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Edit Laporan Pengawasan</h2>
+                        <p class="text-gray-600">Perbarui informasi laporan kegiatan pengawasan lapangan</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <form id="editReportForm" enctype="multipart/form-data" class="space-y-6">
+                            <input type="hidden" id="editReportId" name="reportId">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="form-group">
+                                    <label for="editKegiatanPengawasan" class="block text-sm font-medium text-gray-700 mb-2">Kegiatan Pengawasan *</label>
+                                    <input type="text" id="editKegiatanPengawasan" name="kegiatan_pengawasan" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="editTanggalPelaksanaan" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Pelaksanaan *</label>
+                                    <input type="date" id="editTanggalPelaksanaan" name="tanggal_pelaksanaan" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editHariPelaksanaan" class="block text-sm font-medium text-gray-700 mb-2">Hari Pelaksanaan *</label>
+                                <select id="editHariPelaksanaan" name="hari_pelaksanaan" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Pilih Hari</option>
+                                    <option value="Senin">Senin</option>
+                                    <option value="Selasa">Selasa</option>
+                                    <option value="Rabu">Rabu</option>
+                                    <option value="Kamis">Kamis</option>
+                                    <option value="Jumat">Jumat</option>
+                                    <option value="Sabtu">Sabtu</option>
+                                    <option value="Minggu">Minggu</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editAktivitas" class="block text-sm font-medium text-gray-700 mb-2">Aktivitas yang Dilakukan *</label>
+                                <textarea id="editAktivitas" name="aktivitas" rows="4" required
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editPermasalahan" class="block text-sm font-medium text-gray-700 mb-2">Permasalahan yang Terjadi</label>
+                                <textarea id="editPermasalahan" name="permasalahan" rows="3"
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="form-group">
+                                    <label for="editSuratTugas" class="block text-sm font-medium text-gray-700 mb-2">Upload Surat Tugas Baru</label>
+                                    <input type="file" id="editSuratTugas" name="surat_tugas" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="text-sm text-gray-500 mt-1">Kosongkan jika tidak ingin mengubah file</p>
+                                    <div id="currentSuratTugas" class="mt-2 text-sm text-blue-600"></div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="editDokumenVisum" class="block text-sm font-medium text-gray-700 mb-2">Upload Dokumen Visum Baru</label>
+                                    <input type="file" id="editDokumenVisum" name="dokumen_visum" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="text-sm text-gray-500 mt-1">Kosongkan jika tidak ingin mengubah file</p>
+                                    <div id="currentDokumenVisum" class="mt-2 text-sm text-blue-600"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editFotoDokumentasi" class="block text-sm font-medium text-gray-700 mb-2">Upload Foto Dokumentasi Baru</label>
+                                <input type="file" id="editFotoDokumentasi" name="foto_dokumentasi" accept=".jpg,.jpeg,.png" multiple
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p class="text-sm text-gray-500 mt-1">Kosongkan jika tidak ingin mengubah file</p>
+                                <div id="currentFotoDokumentasi" class="mt-2 text-sm text-blue-600 flex flex-wrap space-x-2"></div>
+                            </div>
+
+                            <div class="flex justify-end space-x-4 pt-4">
+                                <button type="button" id="cancelEditBtn" class="btn-secondary px-6 py-3 rounded-md">
+                                    Batal
+                                </button>
+                                <button type="submit" class="btn-primary px-6 py-3 rounded-md">
+                                    Update Laporan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Manage Users View -->
+                <div id="manage-usersView" class="view hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Manajemen Role Pegawai</h2>
+                        <p class="text-gray-600">Kelola pengguna dan role pegawai di sistem</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <form id="addUserForm" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="form-group">
+                                    <label for="newUsername" class="block text-sm font-medium text-gray-700 mb-2">Username *</label>
+                                    <input type="text" id="newUsername" name="username" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Masukkan username">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="newName" class="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
+                                    <input type="text" id="newName" name="name" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Masukkan nama lengkap">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+                                    <input type="password" id="newPassword" name="password" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Masukkan password">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="newRole" class="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+                                <select id="newRole" name="role" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Pilih Role</option>
+                                    <option value="pegawai">Pegawai</option>
+                                    <option value="kepala">Kepala</option>
+                                </select>
+                            </div>
+
+                            <div class="flex justify-end space-x-4 pt-4">
+                                <button type="reset" class="btn-secondary px-6 py-3 rounded-md">Bersihkan</button>
+                                <button type="submit" class="btn-primary px-6 py-3 rounded-md">Tambah User</button>
+                            </div>
+                        </form>
+
+                        <div class="mt-8">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Daftar Pengguna</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Lengkap</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-4 text-center text-gray-500">Memuat data...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Report Detail Modal -->
+    <div id="reportDetailModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-screen overflow-y-auto">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Detail Laporan Pengawasan</h3>
+                <button id="closeDetailModal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="reportDetailContent" class="p-6">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="p-3 rounded-full bg-red-100 mr-4">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">Konfirmasi Hapus</h3>
+                        <p class="text-gray-600 mt-1">Apakah Anda yakin ingin menghapus laporan ini?</p>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button id="cancelDeleteBtn" class="btn-secondary px-4 py-2 rounded-md">
+                        Batal
+                    </button>
+                    <button id="confirmDeleteBtn" class="btn-danger px-4 py-2 rounded-md">
+                        Hapus
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="messageContainer" class="fixed top-4 right-4 z-50 space-y-2">
+        <!-- Messages will be added here dynamically -->
+    </div>
+
+    <script>
+        // Global variables
+        let currentUser = null;
+        let currentView = 'overview';
+        let reports = [];
+        let deleteReportId = null;
+
+        // API Base URL
+        const API_BASE = '/api';
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+            setupEventListeners();
+        });
+
+        // Check if user is already authenticated
+        function checkAuthStatus() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (token && user) {
+                currentUser = JSON.parse(user);
+                showDashboard();
+            } else {
+                showLogin();
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Login form
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            
+            // Add event listeners for form validation
+            document.getElementById('createReportForm').addEventListener('submit', validateCreateReportForm);
+
+            // Add event listeners for form validation
+            
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            
+            // Sidebar toggle
+            document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+            
+            // Navigation
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const view = e.currentTarget.getAttribute('data-view');
+                    switchView(view);
+                });
+            });
+            
+            // Forms
+            document.getElementById('createReportForm').addEventListener('submit', handleCreateReport);
+            document.getElementById('editReportForm').addEventListener('submit', handleEditReport);
+            
+            // Buttons
+            document.getElementById('cancelCreateBtn').addEventListener('click', () => switchView('reports'));
+            document.getElementById('cancelEditBtn').addEventListener('click', () => switchView('reports'));
+            document.getElementById('refreshReportsBtn').addEventListener('click', loadReports);
+            document.getElementById('printAllReportsBtn').addEventListener('click', printAllReports);
+            
+            // Modals
+            document.getElementById('closeDetailModal').addEventListener('click', closeReportDetailModal);
+            document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteConfirmModal);
+            document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDeleteReport);
+            
+            // Auto-fill day when date is selected
+            document.getElementById('tanggalPelaksanaan').addEventListener('change', autoFillDay);
+            document.getElementById('editTanggalPelaksanaan').addEventListener('change', autoFillEditDay);
+        }
+
+        function validateCreateReportForm(e) {
+            let isValid = true;
+
+            // Kegiatan Pengawasan
+            const kegiatanPengawasan = document.getElementById('kegiatanPengawasan').value;
+            if (!kegiatanPengawasan) {
+                showMessage('Kegiatan Pengawasan harus diisi', 'error');
+                isValid = false;
+            }
+
+            // Tanggal Pelaksanaan
+            const tanggalPelaksanaan = document.getElementById('tanggalPelaksanaan').value;
+            if (!tanggalPelaksanaan) {
+                showMessage('Tanggal Pelaksanaan harus diisi', 'error');
+                isValid = false;
+            }
+
+            // Hari Pelaksanaan
+            const hariPelaksanaan = document.getElementById('hariPelaksanaan').value;
+            if (!hariPelaksanaan) {
+                showMessage('Hari Pelaksanaan harus diisi', 'error');
+                isValid = false;
+            }
+
+            // Aktivitas yang Dilakukan
+            const aktivitas = document.getElementById('aktivitas').value;
+            if (!aktivitas) {
+                showMessage('Aktivitas yang Dilakukan harus diisi', 'error');
+                isValid = false;
+            }
+
+            if (!isValid) {
+                e.preventDefault(); // Prevent form submission
+            }
+
+            return isValid;
+        }
+
+        // Authentication functions
+        async function handleLogin(e) {
+            e.preventDefault();
+            showLoading();
+            
+            const formData = new FormData(e.target);
+            const credentials = {
+                username: formData.get('username'),
+                password: formData.get('password')
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(credentials)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    currentUser = data.user;
+                    showMessage('Login berhasil!', 'success');
+                    showDashboard();
+                } else {
+                    showMessage(data.message || 'Login gagal', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('Terjadi kesalahan saat login', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            currentUser = null;
+            showLogin();
+            showMessage('Logout berhasil', 'success');
+        }
+
+        // UI functions
+        function showLogin() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            
+            updateUserInfo();
+            setupRoleBasedUI();
+            switchView('overview');
+        }
+
+        function updateUserInfo() {
+            if (currentUser) {
+                document.getElementById('userInfo').textContent = 
+                    `${currentUser.name} (${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)})`;
+            }
+        }
+
+        function setupRoleBasedUI() {
+            if (currentUser.role === 'pegawai') {
+                document.querySelectorAll('.kepala-only').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.pegawai-only').forEach(el => {
+                    el.classList.remove('hidden');
+                });
+            } else {
+                document.querySelectorAll('.kepala-only').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.pegawai-only').forEach(el => el.classList.add('hidden'));
+            }
+        }
+
+        function switchView(view) {
+            // Hide all views
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            
+            // Show selected view
+            document.getElementById(`${view}View`).classList.remove('hidden');
+            
+            // Update navigation active state
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'text-blue-600');
+                if (btn.getAttribute('data-view') === view) {
+                    btn.classList.add('bg-blue-100', 'text-blue-600');
+                }
+            });
+            
+            currentView = view;
+            
+            // Load data based on view
+            if (view === 'overview') {
+                loadOverviewData();
+            } else if (view === 'reports') {
+                loadReports();
+            } else if (view === 'create-report') {
+                resetCreateForm();
+            } else if (view === 'manage-users') {
+                loadUsers();
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar.classList.contains('sidebar-active')) {
+                sidebar.classList.remove('sidebar-active');
+                sidebar.classList.add('sidebar-hidden');
+            } else {
+                sidebar.classList.remove('sidebar-hidden');
+                sidebar.classList.add('sidebar-active');
+            }
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(event.target) && 
+                !sidebarToggle.contains(event.target) &&
+                sidebar.classList.contains('sidebar-active')) {
+                toggleSidebar();
+            }
+        });
+
+        // Data loading functions
+        async function loadOverviewData() {
+            try {
+                await loadReports();
+                updateOverviewStats();
+                loadRecentReports();
+            } catch (error) {
+                console.error('Error loading overview data:', error);
+                showMessage('Gagal memuat data ringkasan', 'error');
+            }
+        }
+
+        async function loadReports() {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    reports = await response.json();
+                    updateReportsTable();
+                } else {
+                    throw new Error('Failed to load reports');
+                }
+            } catch (error) {
+                console.error('Error loading reports:', error);
+                showMessage('Gagal memuat data laporan', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function updateOverviewStats() {
+            const totalReports = reports.length;
+            const currentMonth = new Date().getMonth();
+            const monthlyReports = reports.filter(report => {
+                const reportMonth = new Date(report.tanggal_pelaksanaan).getMonth();
+                return reportMonth === currentMonth;
+            }).length;
+            
+            document.getElementById('totalReports').textContent = totalReports;
+            document.getElementById('monthlyReports').textContent = monthlyReports;
+            
+            if (currentUser.role === 'kepala') {
+                const uniquePegawai = new Set(reports.map(r => r.user_id)).size;
+                document.getElementById('activePegawai').textContent = uniquePegawai;
+            }
+        }
+
+        function loadRecentReports() {
+            const recentReports = reports.slice(0, 5);
+            const container = document.getElementById('recentReportsTable');
+            
+            if (recentReports.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">Belum ada laporan</p>';
+                return;
+            }
+            
+            const tableHTML = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pegawai</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kegiatan</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            ${recentReports.map(report => `
+                                <tr>
+                                    <td class="px-4 py-3 text-sm">${report.pegawai_name}</td>
+                                    <td class="px-4 py-3 text-sm">${report.kegiatan_pengawasan}</td>
+                                    <td class="px-4 py-3 text-sm">${formatDate(report.tanggal_pelaksanaan)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+
+        function updateReportsTable() {
+            const tbody = document.getElementById('reportsTableBody');
+            
+            if (reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Belum ada laporan</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = reports.map(report => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${report.pegawai_name}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">${report.kegiatan_pengawasan}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${formatDate(report.tanggal_pelaksanaan)}</div>
+                        <div class="text-sm text-gray-500">${report.hari_pelaksanaan}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                            Selesai
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button onclick="viewReportDetail(${report.id})" class="text-blue-600 hover:text-blue-900">
+                            Detail
+                        </button>
+                        <button onclick="printReport(${report.id})" class="text-purple-600 hover:text-purple-900">
+                            Cetak
+                        </button>
+                        ${canEditReport(report) ? `
+                            <button onclick="editReport(${report.id})" class="text-yellow-600 hover:text-yellow-900">
+                                Edit
+                            </button>
+                            <button onclick="deleteReport(${report.id})" class="text-red-600 hover:text-red-900">
+                                Hapus
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Report functions
+        function canEditReport(report) {
+            return currentUser.role === 'pegawai' && report.user_id === currentUser.id;
+        }
+
+        async function handleCreateReport(e) {
+            e.preventDefault();
+            showLoading();
+            
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Laporan berhasil dibuat!', 'success');
+                    resetCreateForm();
+                    switchView('reports');
+                    loadReports();
+                } else {
+                    showMessage(data.message || 'Gagal membuat laporan', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating report:', error);
+                showMessage('Terjadi kesalahan saat membuat laporan', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function handleEditReport(e) {
+            e.preventDefault();
+            showLoading();
+            
+            const formData = new FormData(e.target);
+            const reportId = formData.get('reportId');
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports/${reportId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Laporan berhasil diupdate!', 'success');
+                    switchView('reports');
+                    loadReports();
+                } else {
+                    showMessage(data.message || 'Gagal mengupdate laporan', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating report:', error);
+                showMessage('Terjadi kesalahan saat mengupdate laporan', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function resetCreateForm() {
+            document.getElementById('createReportForm').reset();
+        }
+
+        async function viewReportDetail(reportId) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports/${reportId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const report = await response.json();
+                    showReportDetailModal(report);
+                } else {
+                    throw new Error('Failed to load report detail');
+                }
+            } catch (error) {
+                console.error('Error loading report detail:', error);
+                showMessage('Gagal memuat detail laporan', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showReportDetailModal(report) {
+            const modal = document.getElementById('reportDetailModal');
+            const content = document.getElementById('reportDetailContent');
+            
+            // Generate photo previews HTML
+            let photosHTML = '';
+            if (report.foto_dokumentasi) {
+                let fotoList = [];
+                if (Array.isArray(report.foto_dokumentasi)) {
+                    fotoList = report.foto_dokumentasi;
+                } else if (typeof report.foto_dokumentasi === 'string' && report.foto_dokumentasi.trim() !== '') {
+                    fotoList = [report.foto_dokumentasi];
+                }
+                if (fotoList.length > 0) {
+                    photosHTML = `
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Foto Dokumentasi</label>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                ${fotoList.map(photo => `
+                                    <div class="relative">
+                                        <img src="/uploads/${photo}" alt="Foto Dokumentasi" 
+                                             class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80"
+                                             onclick="window.open('/uploads/${photo}', '_blank')">
+                                        <div class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                            Klik untuk memperbesar
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Pegawai</label>
+                            <p class="text-gray-900">${report.pegawai_name}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Kegiatan Pengawasan</label>
+                            <p class="text-gray-900">${report.kegiatan_pengawasan}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pelaksanaan</label>
+                            <p class="text-gray-900">${formatDate(report.tanggal_pelaksanaan)}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Hari Pelaksanaan</label>
+                            <p class="text-gray-900">${report.hari_pelaksanaan}</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Aktivitas yang Dilakukan</label>
+                        <p class="text-gray-900 whitespace-pre-line">${report.aktivitas}</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Permasalahan yang Terjadi</label>
+                        <p class="text-gray-900 whitespace-pre-line">${report.permasalahan || '-'}</p>
+                    </div>
+
+                    ${photosHTML}
+
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button id="closeDetailModal" class="btn-secondary px-6 py-3 rounded-md">
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeReportDetailModal() {
+            const modal = document.getElementById('reportDetailModal');
+            modal.classList.add('hidden');
+        }
+
+        function deleteReport(reportId) {
+            deleteReportId = reportId;
+            const modal = document.getElementById('deleteConfirmModal');
+            modal.classList.remove('hidden');
+        }
+
+        function closeDeleteConfirmModal() {
+            const modal = document.getElementById('deleteConfirmModal');
+            modal.classList.add('hidden');
+        }
+
+        async function confirmDeleteReport() {
+            closeDeleteConfirmModal();
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports/${deleteReportId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    showMessage('Laporan berhasil dihapus!', 'success');
+                    loadReports();
+                } else {
+                    throw new Error('Failed to delete report');
+                }
+            } catch (error) {
+                console.error('Error deleting report:', error);
+                showMessage('Gagal menghapus laporan', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('messageContainer');
+            const messageId = 'msg-' + Date.now();
+            
+            const messageHTML = `
+                <div id="${messageId}" class="p-4 rounded-lg shadow-md ${type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}">
+                    <div class="flex items-center">
+                        <div class="text-${type === 'success' ? 'green' : 'red'}-600">
+                            ${type === 'success' ? 
+                                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2l4 -4"></path></svg>' : 
+                                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'}
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">${message}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', messageHTML);
+            
+            // Auto-remove message after 5 seconds
+            setTimeout(() => {
+                const msgElement = document.getElementById(messageId);
+                if (msgElement) {
+                    msgElement.classList.add('animate-fade-out');
+                    setTimeout(() => msgElement.remove(), 300);
+                }
+            }, 5000);
+        }
+
+        // Utility functions
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            return new Date(dateString).toLocaleDateString('id-ID', options);
+        }
+
+        // Loading functions
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        // Auto-fill functions
+        function autoFillDay() {
+            const dateInput = document.getElementById('tanggalPelaksanaan');
+            const dayInput = document.getElementById('hariPelaksanaan');
+            
+            const dateValue = dateInput.value;
+            if (dateValue) {
+                const date = new Date(dateValue);
+                const options = { weekday: 'long' };
+                dayInput.value = date.toLocaleDateString('id-ID', options);
+            } else {
+                dayInput.value = '';
+            }
+        }
+
+        function autoFillEditDay() {
+            const dateInput = document.getElementById('editTanggalPelaksanaan');
+            const dayInput = document.getElementById('editHariPelaksanaan');
+            
+            const dateValue = dateInput.value;
+            if (dateValue) {
+                const date = new Date(dateValue);
+                const options = { weekday: 'long' };
+                dayInput.value = date.toLocaleDateString('id-ID', options);
+            } else {
+                dayInput.value = '';
+            }
+        }
+
+        // Add the missing functions
+        async function printAllReports() {
+            if (currentUser.role !== 'kepala') return;
+            
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/pdf/all-reports`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'laporan_semua_kegiatan_pengawasan.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showMessage('PDF berhasil didownload!', 'success');
+                } else {
+                    throw new Error('Failed to generate PDF');
+                }
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showMessage('Gagal membuat PDF', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadUsers() {
+            const usersTableBody = document.getElementById('usersTableBody');
+            usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Memuat data...</td></tr>';
+            try {
+                const response = await fetch(`${API_BASE}/users`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (response.ok) {
+                    const users = await response.json();
+                    if (users.length === 0) {
+                        usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Belum ada pengguna</td></tr>';
+                        return;
+                    }
+                    usersTableBody.innerHTML = users.map(user => `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">${user.username}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${user.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${user.role.charAt(0).toUpperCase() + user.role.slice(1)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Gagal memuat data pengguna</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                usersTableBody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Terjadi kesalahan saat memuat data pengguna</td></tr>';
+            }
+        }
+
+        async function editReport(reportId) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports/${reportId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const report = await response.json();
+                    populateEditForm(report);
+                    switchView('edit-report');
+                } else {
+                    throw new Error('Failed to load report for editing');
+                }
+            } catch (error) {
+                console.error('Error loading report for editing:', error);
+                showMessage('Gagal memuat data laporan untuk diedit', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function populateEditForm(report) {
+            document.getElementById('editReportId').value = report.id;
+            document.getElementById('editKegiatanPengawasan').value = report.kegiatan_pengawasan;
+            document.getElementById('editTanggalPelaksanaan').value = report.tanggal_pelaksanaan;
+            document.getElementById('editHariPelaksanaan').value = report.hari_pelaksanaan;
+            document.getElementById('editAktivitas').value = report.aktivitas;
+            document.getElementById('editPermasalahan').value = report.permasalahan || '';
+            
+            const currentSuratTugas = document.getElementById('currentSuratTugas');
+            const currentDokumenVisum = document.getElementById('currentDokumenVisum');
+            const currentFotoDokumentasi = document.getElementById('currentFotoDokumentasi');
+            
+            currentSuratTugas.innerHTML = report.surat_tugas_path ? 
+                `<a href="/uploads/${report.surat_tugas_path}" target="_blank" class="text-blue-600 hover:underline">File saat ini: ${report.surat_tugas_path}</a>` : 
+                'Tidak ada file';
+            
+            currentDokumenVisum.innerHTML = report.dokumen_visum_path ? 
+                `<a href="/uploads/${report.dokumen_visum_path}" target="_blank" class="text-blue-600 hover:underline">File saat ini: ${report.dokumen_visum_path}</a>` : 
+                'Tidak ada file';
+            
+            // Display current photos
+            if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
+                currentFotoDokumentasi.innerHTML = report.foto_dokumentasi.map(photo => `
+                    <div class="relative inline-block">
+                        <img src="/uploads/${photo}" alt="Foto Dokumentasi" 
+                             class="w-20 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80"
+                             onclick="window.open('/uploads/${photo}', '_blank')">
+                        <div class="absolute -top-2 -right-2 bg-black bg-opacity-50 text-white text-xs px-1 py-0.5 rounded">
+                            ${photo.split('-').pop()}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                currentFotoDokumentasi.innerHTML = '<span class="text-gray-500">Tidak ada foto</span>';
+            }
+        }
+
+        async function printReport(reportId) {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/pdf/report/${reportId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `laporan_pengawasan_${reportId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showMessage('PDF berhasil didownload!', 'success');
+                } else {
+                    throw new Error('Failed to generate PDF');
+                }
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showMessage('Gagal membuat PDF', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Global functions for onclick handlers
+        window.viewReportDetail = viewReportDetail;
+        window.editReport = editReport;
+        window.deleteReport = deleteReport;
+        window.printReport = printReport;
+        window.printAllReports = printAllReports;
+    </script>
+    <script src="users.js"></script>
+</body>
+</html>
