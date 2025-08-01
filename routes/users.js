@@ -4,107 +4,137 @@ const db = require('../config/database-sqlite');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
 
-// Middleware: authenticate and authorize only kepala role
-router.use(authenticateToken);
-router.use(authorizeRole('kepala'));
-
-// GET /api/users - list all users
-router.get('/', async (req, res) => {
+// Get all users (Kepala only)
+router.get('/', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
     try {
-        const users = await db.all('SELECT id, username, name, role FROM users ORDER BY id ASC');
+        const users = await db.all('SELECT id, username, name, role, created_at FROM users ORDER BY created_at DESC');
         res.json(users);
     } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// POST /api/users - create new user
-router.post('/', async (req, res) => {
+// Create user (Kepala only)
+router.post('/', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
     try {
-        const { username, name, password, role } = req.body;
-        if (!username || !name || !password || !role) {
+        const { username, password, name, role } = req.body;
+
+        // Validate input
+        if (!username || !password || !name || !role) {
             return res.status(400).json({ message: 'Semua field harus diisi' });
         }
 
+        if (!['pegawai', 'kepala'].includes(role)) {
+            return res.status(400).json({ message: 'Role tidak valid' });
+        }
+
         // Check if username already exists
-        const existingUser = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+        const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
         if (existingUser) {
-            return res.status(409).json({ message: 'Username sudah digunakan' });
+            return res.status(400).json({ message: 'Username sudah digunakan' });
         }
 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Insert new user
-        await db.run(
-            'INSERT INTO users (username, name, password, role) VALUES (?, ?, ?, ?)',
-            [username, name, hashedPassword, role]
+        const result = await db.run(
+            'INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
+            [username, hashedPassword, name, role]
         );
 
-        res.status(201).json({ message: 'User berhasil ditambahkan' });
+        const newUser = await db.get('SELECT id, username, name, role, created_at FROM users WHERE id = ?', [result.id]);
+
+        res.status(201).json({
+            message: 'User berhasil ditambahkan',
+            user: newUser
+        });
     } catch (error) {
-        console.error('Error creating user:', error);
+        console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// PUT /api/users/:id - update user
-router.put('/:id', async (req, res) => {
+// Update user (Kepala only)
+router.put('/:id', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
     try {
         const { id } = req.params;
-        const { username, name, password, role } = req.body;
-        
+        const { username, password, name, role } = req.body;
+
+        // Validate input
+        if (!username || !name || !role) {
+            return res.status(400).json({ message: 'Username, nama, dan role harus diisi' });
+        }
+
+        if (!['pegawai', 'kepala'].includes(role)) {
+            return res.status(400).json({ message: 'Role tidak valid' });
+        }
+
         // Check if user exists
-        const existingUser = await db.get('SELECT id FROM users WHERE id = ?', [id]);
+        const existingUser = await db.get('SELECT * FROM users WHERE id = ?', [id]);
         if (!existingUser) {
             return res.status(404).json({ message: 'User tidak ditemukan' });
         }
-        
-        // If password is provided, hash it
-        let updateQuery = 'UPDATE users SET username = ?, name = ?, role = ?';
-        const updateParams = [username, name, role];
-        
+
+        // Check if username is taken by another user
+        const duplicateUser = await db.get('SELECT * FROM users WHERE username = ? AND id != ?', [username, id]);
+        if (duplicateUser) {
+            return res.status(400).json({ message: 'Username sudah digunakan' });
+        }
+
+        // Prepare update query
+        let updateQuery = 'UPDATE users SET username = ?, name = ?, role = ? WHERE id = ?';
+        let params = [username, name, role, id];
+
+        // If password is provided, hash it and include in update
         if (password && password.trim() !== '') {
             const hashedPassword = await bcrypt.hash(password, 10);
-            updateQuery = 'UPDATE users SET username = ?, name = ?, password = ?, role = ?';
-            updateParams.splice(2, 0, hashedPassword);
+            updateQuery = 'UPDATE users SET username = ?, password = ?, name = ?, role = ? WHERE id = ?';
+            params = [username, hashedPassword, name, role, id];
         }
-        
-        updateQuery += ' WHERE id = ?';
-        updateParams.push(id);
-        
-        await db.run(updateQuery, updateParams);
-        
-        res.json({ message: 'User berhasil diupdate' });
+
+        await db.run(updateQuery, params);
+
+        const updatedUser = await db.get('SELECT id, username, name, role, created_at FROM users WHERE id = ?', [id]);
+
+        res.json({
+            message: 'User berhasil diupdate',
+            user: updatedUser
+        });
     } catch (error) {
-        console.error('Error updating user:', error);
+        console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// DELETE /api/users/:id - delete user
-router.delete('/:id', async (req, res) => {
+// Delete user (Kepala only)
+router.delete('/:id', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         // Check if user exists
-        const existingUser = await db.get('SELECT id FROM users WHERE id = ?', [id]);
+        const existingUser = await db.get('SELECT * FROM users WHERE id = ?', [id]);
         if (!existingUser) {
             return res.status(404).json({ message: 'User tidak ditemukan' });
         }
-        
-        // Prevent deleting the current user (admin)
-        if (req.user.id == id) {
+
+        // Prevent deleting self
+        if (parseInt(id) === req.user.id) {
             return res.status(400).json({ message: 'Tidak dapat menghapus akun sendiri' });
         }
-        
-        // Delete user
+
+        // Check if user has reports
+        const userReports = await db.get('SELECT COUNT(*) as count FROM reports WHERE user_id = ?', [id]);
+        if (userReports.count > 0) {
+            return res.status(400).json({ message: 'Tidak dapat menghapus user yang memiliki laporan. Hapus laporan terlebih dahulu.' });
+        }
+
         await db.run('DELETE FROM users WHERE id = ?', [id]);
-        
+
         res.json({ message: 'User berhasil dihapus' });
     } catch (error) {
-        console.error('Error deleting user:', error);
+        console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
