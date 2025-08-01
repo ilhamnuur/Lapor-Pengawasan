@@ -475,22 +475,22 @@ function updateReportsTable() {
     
     tbody.innerHTML = filteredReports.map(report => `
         <tr>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td data-label="Pegawai" class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">${report.pegawai_name}</div>
             </td>
-            <td class="px-6 py-4">
+            <td data-label="Kegiatan" class="px-6 py-4">
                 <div class="text-sm text-gray-900">${report.kegiatan_pengawasan}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td data-label="Tanggal" class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-900">${formatDate(report.tanggal_pelaksanaan)}</div>
                 <div class="text-sm text-gray-500">${report.hari_pelaksanaan}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td data-label="Status" class="px-6 py-4 whitespace-nowrap">
                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                     Selesai
                 </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+            <td data-label="Aksi" class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                 <button onclick="viewReportDetail(${report.id})" class="text-blue-600 hover:text-blue-900">
                     Detail
                 </button>
