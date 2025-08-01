@@ -27,16 +27,16 @@ router.get('/all-reports', authenticateToken, authorizeRole(['kepala']), async (
         worksheet.properties.defaultRowHeight = 20;
 
         // Add title
-        worksheet.mergeCells('A1:I1');
+        worksheet.mergeCells('A1:K1');
         const titleCell = worksheet.getCell('A1');
         titleCell.value = 'LAPORAN KEGIATAN PENGAWASAN LAPANGAN BPS KABUPATEN TUBAN';
         titleCell.font = { bold: true, size: 14 };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
         // Add date generated
-        worksheet.mergeCells('A2:I2');
+        worksheet.mergeCells('A2:K2');
         const dateCell = worksheet.getCell('A2');
-        dateCell.value = `Digenerate pada: ${new Date().toLocaleDateString('id-ID', { 
+        dateCell.value = `Digenerate pada: ${new Date().toLocaleDateString('id-ID', {
             year: 'numeric', 
             month: 'long', 
             day: 'numeric',
@@ -59,6 +59,8 @@ router.get('/all-reports', authenticateToken, authorizeRole(['kepala']), async (
             'Hari Pelaksanaan',
             'Aktivitas yang Dilakukan',
             'Permasalahan',
+            'Petugas/Responden Ditemui',
+            'Solusi/Langkah Antisipatif',
             'Tanggal Dibuat'
         ];
 
@@ -81,6 +83,8 @@ router.get('/all-reports', authenticateToken, authorizeRole(['kepala']), async (
             { width: 15 },  // Hari Pelaksanaan
             { width: 40 },  // Aktivitas
             { width: 30 },  // Permasalahan
+            { width: 30 },  // Petugas/Responden
+            { width: 40 },  // Solusi/Antisipasi
             { width: 15 }   // Tanggal Dibuat
         ];
 
@@ -95,6 +99,8 @@ router.get('/all-reports', authenticateToken, authorizeRole(['kepala']), async (
                 report.hari_pelaksanaan,
                 report.aktivitas,
                 report.permasalahan || 'Tidak ada permasalahan',
+                report.petugas_responden || '-',
+                report.solusi_antisipasi || '-',
                 new Date(report.created_at).toLocaleDateString('id-ID')
             ]);
 
@@ -110,6 +116,8 @@ router.get('/all-reports', authenticateToken, authorizeRole(['kepala']), async (
             // Wrap text for long content
             row.getCell(7).alignment = { wrapText: true, vertical: 'top' }; // Aktivitas
             row.getCell(8).alignment = { wrapText: true, vertical: 'top' }; // Permasalahan
+            row.getCell(9).alignment = { wrapText: true, vertical: 'top' }; // Petugas/Responden
+            row.getCell(10).alignment = { wrapText: true, vertical: 'top' }; // Solusi/Antisipasi
         });
 
         // Add borders to all cells
@@ -173,21 +181,21 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
         const worksheet = workbook.addWorksheet('Laporan Pengawasan');
 
         // Similar structure as above but with date range in title
-        worksheet.mergeCells('A1:I1');
+        worksheet.mergeCells('A1:K1');
         const titleCell = worksheet.getCell('A1');
         titleCell.value = `LAPORAN KEGIATAN PENGAWASAN LAPANGAN BPS KABUPATEN TUBAN`;
         titleCell.font = { bold: true, size: 14 };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        worksheet.mergeCells('A2:I2');
+        worksheet.mergeCells('A2:K2');
         const periodCell = worksheet.getCell('A2');
         periodCell.value = `Periode: ${new Date(startDate).toLocaleDateString('id-ID')} - ${new Date(endDate).toLocaleDateString('id-ID')}`;
         periodCell.font = { bold: true, size: 12 };
         periodCell.alignment = { horizontal: 'center' };
 
-        worksheet.mergeCells('A3:I3');
+        worksheet.mergeCells('A3:K3');
         const dateCell = worksheet.getCell('A3');
-        dateCell.value = `Digenerate pada: ${new Date().toLocaleDateString('id-ID', { 
+        dateCell.value = `Digenerate pada: ${new Date().toLocaleDateString('id-ID', {
             year: 'numeric', 
             month: 'long', 
             day: 'numeric',
@@ -202,7 +210,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
         const headers = [
             'No', 'Nama Pegawai', 'Jenis Kegiatan', 'Kegiatan Pengawasan',
             'Tanggal Pelaksanaan', 'Hari Pelaksanaan', 'Aktivitas yang Dilakukan',
-            'Permasalahan', 'Tanggal Dibuat'
+            'Permasalahan', 'Petugas/Responden Ditemui', 'Solusi/Langkah Antisipatif', 'Tanggal Dibuat'
         ];
 
         const headerRow = worksheet.addRow(headers);
@@ -215,7 +223,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
 
         worksheet.columns = [
             { width: 5 }, { width: 20 }, { width: 20 }, { width: 30 },
-            { width: 15 }, { width: 15 }, { width: 40 }, { width: 30 }, { width: 15 }
+            { width: 15 }, { width: 15 }, { width: 40 }, { width: 30 }, { width: 30 }, { width: 40 }, { width: 15 }
         ];
 
         reports.forEach((report, index) => {
@@ -228,6 +236,8 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
                 report.hari_pelaksanaan,
                 report.aktivitas,
                 report.permasalahan || 'Tidak ada permasalahan',
+                report.petugas_responden || '-',
+                report.solusi_antisipasi || '-',
                 new Date(report.created_at).toLocaleDateString('id-ID')
             ]);
 
@@ -241,6 +251,8 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
 
             row.getCell(7).alignment = { wrapText: true, vertical: 'top' };
             row.getCell(8).alignment = { wrapText: true, vertical: 'top' };
+            row.getCell(9).alignment = { wrapText: true, vertical: 'top' };
+            row.getCell(10).alignment = { wrapText: true, vertical: 'top' };
         });
 
         // Add borders

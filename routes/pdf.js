@@ -45,7 +45,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
             const photoElements = report.foto_dokumentasi.map(photoPath => {
                 // Assuming photoPath is now a full path like 'uploads/activity/2025-08/filename.jpg'
-                const fullPath = path.resolve(photoPath);
+                const fullPath = path.resolve(photoPath).replace(/\\/g, '/');
                 return `<div class="photo-item">
                     <img src="file://${fullPath}" alt="Foto Dokumentasi">
                 </div>`;
@@ -161,7 +161,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 <div class="signature">
                     <div class="signature-box">
                         <p>Tuban, ${new Date().toLocaleDateString('id-ID')}</p>
-                        <p>Pelapor,</p>
+                        <p>Pegawai,</p>
                         <br><br><br>
                         <p><u>${report.pegawai_name}</u></p>
                     </div>
@@ -172,7 +172,9 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             </html>
         `;
         
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch({
+        headless: "new" // Opt-in to the new Headless mode
+        });
         const page = await browser.newPage();
         await page.setContent(htmlContent);
         
