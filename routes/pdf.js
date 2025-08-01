@@ -44,10 +44,10 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         let photosHTML = '';
         if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
             const photoElements = report.foto_dokumentasi.map(photoPath => {
-                const fullPath = path.resolve('uploads', photoPath);
+                // Assuming photoPath is now a full path like 'uploads/activity/2025-08/filename.jpg'
+                const fullPath = path.resolve(photoPath);
                 return `<div class="photo-item">
                     <img src="file://${fullPath}" alt="Foto Dokumentasi">
-                    <p class="photo-caption">${photoPath}</p>
                 </div>`;
             }).join('');
 
@@ -55,57 +55,12 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             <div class="page-break"></div>
             <div class="documentation-page">
                 <div class="documentation-header">
-                    <h2>DOKUMENTASI PENGAWASAN</h2>
+                    <h2>FOTO-FOTO DOKUMENTASI</h2>
                 </div>
                 <div class="photos-grid">
                     ${photoElements}
                 </div>
             </div>`;
-        }
-
-        // Generate attachments HTML
-        let attachmentsHTML = '';
-        const attachments = [];
-        
-        if (report.surat_tugas_path) {
-            attachments.push({ name: 'Surat Tugas', path: report.surat_tugas_path });
-        }
-        
-        if (report.dokumen_visum_path) {
-            attachments.push({ name: 'Dokumen Visum', path: report.dokumen_visum_path });
-        }
-
-        if (attachments.length > 0) {
-            const attachmentElements = attachments.map(att => {
-                const filePath = path.resolve('uploads', att.path);
-                const ext = path.extname(att.path).toLowerCase();
-                
-                if (['.jpg', '.jpeg', '.png'].includes(ext)) {
-                    return `<div class="attachment-item">
-                        <h4>${att.name}</h4>
-                        <img src="file://${filePath}" alt="${att.name}" style="max-width: 100%; height: auto;">
-                    </div>`;
-                } else {
-                    return `<div class="attachment-item">
-                        <h4>${att.name}</h4>
-                        <p>File: ${att.path}</p>
-                        <p><em>Dokumen tidak dapat ditampilkan dalam PDF (${ext})</em></p>
-                    </div>`;
-                }
-            }).join('');
-
-            if (attachmentElements) {
-                attachmentsHTML = `
-                <div class="page-break"></div>
-                <div class="attachments-page">
-                    <div class="attachments-header">
-                        <h2>LAMPIRAN DOKUMEN</h2>
-                    </div>
-                    <div class="attachments-content">
-                        ${attachmentElements}
-                    </div>
-                </div>`;
-            }
         }
 
         let htmlContent = `
@@ -209,12 +164,12 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         <span>${report.permasalahan || 'Tidak ada permasalahan'}</span>
                     </div>
                     <div class="field">
-                        <label>Surat Tugas:</label>
-                        <span>${report.surat_tugas_path ? 'Tersedia' : 'Tidak ada'}</span>
+                        <label>Petugas/Responden Ditemui:</label>
+                        <span>${report.petugas_responden || '-'}</span>
                     </div>
                     <div class="field">
-                        <label>Dokumen Visum:</label>
-                        <span>${report.dokumen_visum_path ? 'Tersedia' : 'Tidak ada'}</span>
+                        <label>Solusi/Langkah Antisipatif:</label>
+                        <span>${report.solusi_antisipasi || '-'}</span>
                     </div>
                 </div>
                 
@@ -228,7 +183,6 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 </div>
 
                 ${photosHTML}
-                ${attachmentsHTML}
             </body>
             </html>
         `;
