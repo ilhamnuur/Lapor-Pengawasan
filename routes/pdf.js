@@ -81,17 +81,17 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                     .signature { margin-top: 50px; text-align: right; }
                     .signature-box { display: inline-block; text-align: center; }
                     .page-break { page-break-before: always; }
-                    .documentation-page, .attachments-page { margin-top: 40px; }
-                    .documentation-header, .attachments-header { 
-                        text-align: center; 
-                        margin-bottom: 30px; 
-                        border-bottom: 2px solid #333; 
-                        padding-bottom: 15px; 
+                    .documentation-page { margin-top: 40px; }
+                    .documentation-header {
+                        text-align: center;
+                        margin-bottom: 30px;
+                        border-bottom: 2px solid #333;
+                        padding-bottom: 15px;
                     }
-                    .documentation-header h2, .attachments-header h2 { 
-                        font-size: 18px; 
-                        font-weight: bold; 
-                        margin: 0; 
+                    .documentation-header h2 {
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin: 0;
                     }
                     .photos-grid { 
                         display: grid; 
@@ -113,21 +113,6 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         font-size: 12px; 
                         color: #666; 
                         margin-top: 5px; 
-                    }
-                    .attachments-content { margin-top: 20px; }
-                    .attachment-item { 
-                        margin-bottom: 30px; 
-                        page-break-inside: avoid; 
-                    }
-                    .attachment-item h4 { 
-                        font-size: 16px; 
-                        font-weight: bold; 
-                        margin-bottom: 10px; 
-                        color: #333; 
-                    }
-                    .attachment-item img { 
-                        border: 1px solid #ddd; 
-                        border-radius: 4px; 
                     }
                 </style>
             </head>
