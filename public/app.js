@@ -180,6 +180,12 @@ function setupEventListeners() {
     if (editTanggalPelaksanaan) {
         editTanggalPelaksanaan.addEventListener('change', autoFillEditDay);
     }
+
+    // Event delegation for reports table
+    const reportsTableBody = document.getElementById('reportsTableBody');
+    if (reportsTableBody) {
+        reportsTableBody.addEventListener('click', handleReportAction);
+    }
 }
 
 // Authentication functions
@@ -491,17 +497,17 @@ function updateReportsTable() {
                 </span>
             </td>
             <td data-label="Aksi" class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                <button onclick="viewReportDetail(${report.id})" class="text-blue-600 hover:text-blue-900">
+                <button data-action="view-detail" data-id="${report.id}" class="text-blue-600 hover:text-blue-900">
                     Detail
                 </button>
-                <button onclick="printReport(${report.id})" class="text-purple-600 hover:text-purple-900">
+                <button data-action="print" data-id="${report.id}" class="text-purple-600 hover:text-purple-900">
                     Cetak
                 </button>
                 ${canEditReport(report) ? `
-                    <button onclick="editReport(${report.id})" class="text-yellow-600 hover:text-yellow-900">
+                    <button data-action="edit" data-id="${report.id}" class="text-yellow-600 hover:text-yellow-900">
                         Edit
                     </button>
-                    <button onclick="deleteReport(${report.id})" class="text-red-600 hover:text-red-900">
+                    <button data-action="delete" data-id="${report.id}" class="text-red-600 hover:text-red-900">
                         Hapus
                     </button>
                 ` : ''}
@@ -1308,11 +1314,32 @@ function showMessage(message, type = 'info') {
     }, 5000);
 }
 
-// Global functions for onclick handlers
-window.viewReportDetail = viewReportDetail;
-window.editReport = editReport;
-window.deleteReport = deleteReport;
-window.printReport = printReport;
+function handleReportAction(e) {
+    const target = e.target.closest('button');
+    if (!target) return;
+
+    const action = target.dataset.action;
+    const id = target.dataset.id;
+
+    if (!action || !id) return;
+
+    switch (action) {
+        case 'view-detail':
+            viewReportDetail(id);
+            break;
+        case 'print':
+            printReport(id);
+            break;
+        case 'edit':
+            editReport(id);
+            break;
+        case 'delete':
+            deleteReport(id);
+            break;
+    }
+}
+
+// Global functions for onclick handlers (for other tables)
 window.editUser = editUser;
 window.deleteUser = deleteUser;
 window.editActivityType = editActivityType;
