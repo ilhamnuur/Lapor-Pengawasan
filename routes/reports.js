@@ -9,8 +9,6 @@ const fs = require('fs');
 
 // Create report (Pegawai only)
 router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
-    { name: 'surat_tugas', maxCount: 1 },
-    { name: 'dokumen_visum', maxCount: 1 },
     { name: 'foto_dokumentasi', maxCount: 10 }
 ]), async (req, res) => {
     try {
@@ -20,20 +18,19 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
             hari_pelaksanaan,
             aktivitas,
             permasalahan,
-            activity_type_id
+            activity_type_id,
+            petugas_responden,
+            solusi_antisipasi
         } = req.body;
 
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
 
-        const surat_tugas_path = normalizePath(req.files['surat_tugas'] ? req.files['surat_tugas'][0].path : null);
-        const dokumen_visum_path = normalizePath(req.files['dokumen_visum'] ? req.files['dokumen_visum'][0].path : null);
-
         const result = await db.run(
             `INSERT INTO reports (user_id, activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan,
-             hari_pelaksanaan, aktivitas, permasalahan, surat_tugas_path, dokumen_visum_path)
+             hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [req.user.id, activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, hari_pelaksanaan,
-             aktivitas, permasalahan, surat_tugas_path, dokumen_visum_path]
+             aktivitas, permasalahan, petugas_responden, solusi_antisipasi]
         );
 
         const newReport = await db.get('SELECT * FROM reports WHERE id = ?', [result.id]);
@@ -141,8 +138,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Update report (Pegawai only, own reports)
 router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields([
-    { name: 'surat_tugas', maxCount: 1 },
-    { name: 'dokumen_visum', maxCount: 1 },
     { name: 'foto_dokumentasi', maxCount: 10 }
 ]), async (req, res) => {
     try {
@@ -153,7 +148,9 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
             hari_pelaksanaan,
             aktivitas,
             permasalahan,
-            activity_type_id
+            activity_type_id,
+            petugas_responden,
+            solusi_antisipasi
         } = req.body;
 
         // Check if report belongs to user
@@ -177,26 +174,14 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
             }
         };
 
-        let surat_tugas_path = existingReport.surat_tugas_path;
-        if (req.files['surat_tugas']) {
-            deleteFile(existingReport.surat_tugas_path);
-            surat_tugas_path = normalizePath(req.files['surat_tugas'][0].path);
-        }
-
-        let dokumen_visum_path = existingReport.dokumen_visum_path;
-        if (req.files['dokumen_visum']) {
-            deleteFile(existingReport.dokumen_visum_path);
-            dokumen_visum_path = normalizePath(req.files['dokumen_visum'][0].path);
-        }
-
         await db.run(
             `UPDATE reports SET
              activity_type_id = ?, kegiatan_pengawasan = ?, tanggal_pelaksanaan = ?, hari_pelaksanaan = ?,
-             aktivitas = ?, permasalahan = ?, surat_tugas_path = ?, dokumen_visum_path = ?,
+             aktivitas = ?, permasalahan = ?, petugas_responden = ?, solusi_antisipasi = ?,
              updated_at = CURRENT_TIMESTAMP
              WHERE id = ? AND user_id = ?`,
             [activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, hari_pelaksanaan, aktivitas,
-             permasalahan, surat_tugas_path, dokumen_visum_path, id, req.user.id]
+             permasalahan, petugas_responden, solusi_antisipasi, id, req.user.id]
         );
 
         // Handle photo updates

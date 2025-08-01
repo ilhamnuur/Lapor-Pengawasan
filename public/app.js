@@ -749,20 +749,15 @@ function showReportDetailModal(report) {
                 <label class="block text-sm font-medium text-gray-700 mb-1">Permasalahan</label>
                 <p class="text-gray-900 whitespace-pre-wrap">${report.permasalahan || 'Tidak ada permasalahan'}</p>
             </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Surat Tugas</label>
-                    <p class="text-gray-900">${report.surat_tugas_path ? 
-                        `<a href="/uploads/${report.surat_tugas_path}" target="_blank" class="text-blue-600 hover:underline">Lihat File</a>` : 
-                        'Tidak ada file'}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Dokumen Visum</label>
-                    <p class="text-gray-900">${report.dokumen_visum_path ? 
-                        `<a href="/uploads/${report.dokumen_visum_path}" target="_blank" class="text-blue-600 hover:underline">Lihat File</a>` : 
-                        'Tidak ada file'}</p>
-                </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Petugas/Responden yang Ditemui</label>
+                <p class="text-gray-900 whitespace-pre-wrap">${report.petugas_responden || '-'}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Solusi/Langkah Antisipatif</label>
+                <p class="text-gray-900 whitespace-pre-wrap">${report.solusi_antisipasi || '-'}</p>
             </div>
             
             <div class="flex justify-end space-x-4 pt-4 border-t">
@@ -822,7 +817,9 @@ function populateEditForm(report) {
         'editTanggalPelaksanaan': report.tanggal_pelaksanaan,
         'editHariPelaksanaan': report.hari_pelaksanaan,
         'editAktivitas': report.aktivitas,
-        'editPermasalahan': report.permasalahan || ''
+        'editPermasalahan': report.permasalahan || '',
+        'editPetugasResponden': report.petugas_responden || '',
+        'editSolusiAntisipasi': report.solusi_antisipasi || ''
     };
     
     Object.keys(elements).forEach(id => {
@@ -832,19 +829,13 @@ function populateEditForm(report) {
         }
     });
     
-    const currentSuratTugas = document.getElementById('currentSuratTugas');
-    const currentDokumenVisum = document.getElementById('currentDokumenVisum');
+    const currentFotoDokumentasi = document.getElementById('currentFotoDokumentasi');
     
-    if (currentSuratTugas) {
-        currentSuratTugas.innerHTML = report.surat_tugas_path ? 
-            `<a href="/uploads/${report.surat_tugas_path}" target="_blank" class="text-blue-600 hover:underline">File saat ini: ${report.surat_tugas_path}</a>` : 
-            'Tidak ada file';
-    }
-    
-    if (currentDokumenVisum) {
-        currentDokumenVisum.innerHTML = report.dokumen_visum_path ? 
-            `<a href="/uploads/${report.dokumen_visum_path}" target="_blank" class="text-blue-600 hover:underline">File saat ini: ${report.dokumen_visum_path}</a>` : 
-            'Tidak ada file';
+    if (currentFotoDokumentasi) {
+        // This part can be enhanced to show a list of current photos
+        currentFotoDokumentasi.innerHTML = report.foto_dokumentasi && report.foto_dokumentasi.length > 0 ?
+            `Ada ${report.foto_dokumentasi.length} foto telah diunggah.` :
+            'Tidak ada foto dokumentasi.';
     }
 }
 

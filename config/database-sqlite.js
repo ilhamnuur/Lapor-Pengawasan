@@ -81,14 +81,25 @@ const initDatabase = async () => {
                 hari_pelaksanaan VARCHAR(20) NOT NULL,
                 aktivitas TEXT NOT NULL,
                 permasalahan TEXT,
-                surat_tugas_path VARCHAR(255),
-                dokumen_visum_path VARCHAR(255),
+                petugas_responden TEXT,
+                solusi_antisipasi TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id),
                 FOREIGN KEY (activity_type_id) REFERENCES activity_types(id)
             )
         `);
+
+        // Simple migration to add new columns if they don't exist
+        const reportsColumns = await dbAsync.all('PRAGMA table_info(reports)');
+        const reportsColumnNames = reportsColumns.map(c => c.name);
+
+        if (!reportsColumnNames.includes('petugas_responden')) {
+            await dbAsync.exec('ALTER TABLE reports ADD COLUMN petugas_responden TEXT');
+        }
+        if (!reportsColumnNames.includes('solusi_antisipasi')) {
+            await dbAsync.exec('ALTER TABLE reports ADD COLUMN solusi_antisipasi TEXT');
+        }
 
         // Create report_photos table
         await dbAsync.exec(`
