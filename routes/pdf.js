@@ -248,17 +248,13 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
         }
 
         const reports = await db.all(`
-            SELECT r.*, u.name as pegawai_name 
-            FROM reports r 
-            JOIN users u ON r.user_id = u.id 
+            SELECT r.*, u.name as pegawai_name
+            FROM reports r
+            JOIN users u ON r.user_id = u.id
             ORDER BY r.created_at DESC
         `);
 
-        for (const report of reports) {
-            const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [report.id]);
-            report.foto_dokumentasi = photos.map(photo => photo.photo_path);
-        }
-
+        // Generate simplified HTML (no photos) for all reports
         const htmlContent = generateAllReportsHTML(reports);
         
         const browser = await puppeteer.launch();
@@ -269,10 +265,10 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
             format: 'A4',
             printBackground: true,
             margin: {
-                top: '20mm',
-                right: '15mm',
-                bottom: '20mm',
-                left: '15mm'
+                top: '15mm',
+                right: '10mm',
+                bottom: '15mm',
+                left: '10mm'
             }
         });
         
@@ -289,36 +285,16 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
 });
 
 function generateAllReportsHTML(reports) {
-    const reportRows = reports.map(report => {
-        let photosHTML = '';
-        if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
-            const photoElements = report.foto_dokumentasi.map(photoPath => {
-                try {
-                    const imageAsBase64 = fs.readFileSync(photoPath, 'base64');
-                    const fileExtension = path.extname(photoPath).slice(1);
-                    const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-                    const dataUri = `data:${mimeType};base64,${imageAsBase64}`;
-                    return `<div class="photo-item"><img src="${dataUri}" alt="Foto Dokumentasi"></div>`;
-                } catch (error) {
-                    console.error(`Could not read file ${photoPath}:`, error);
-                    return `<div class="photo-item"><span style="font-size:12px;color:#999">Gagal memuat gambar</span></div>`;
-                }
-            }).join('');
-            photosHTML = `<div class="photos-grid">${photoElements}</div>`;
-        }
-
-        return `
-            <tr>
-                <td>${report.pegawai_name}</td>
-                <td>${report.kegiatan_pengawasan}</td>
-                <td>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</td>
-                <td>${report.hari_pelaksanaan}</td>
-                <td>${report.aktivitas}</td>
-                <td>${report.permasalahan || 'Tidak ada'}</td>
-                <td>${photosHTML}</td>
-            </tr>
-        `;
-    }).join('');
+    const reportRows = reports.map(report => `
+        <tr>
+            <td>${report.pegawai_name}</td>
+            <td>${report.kegiatan_pengawasan}</td>
+            <td>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</td>
+            <td>${report.hari_pelaksanaan || '-'}</td>
+            <td>${(report.aktivitas || '').replace(/\s+/g, ' ').trim()}</td>
+            <td>${report.permasalahan ? report.permasalahan.replace(/\s+/g, ' ').trim() : 'Tidak ada'}</td>
+        </tr>
+    `).join('');
 
     return `
         <!DOCTYPE html>
@@ -327,14 +303,26 @@ function generateAllReportsHTML(reports) {
             <meta charset="UTF-8">
             <title>Laporan Semua Kegiatan Pengawasan</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 12px; }
-                .header { text-align: center; margin-bottom: 30px; }
-                .header h1 { margin: 0; font-size: 16px; font-weight: bold; }
-                .header h2 { margin: 5px 0; font-size: 14px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-                th { background-color: #f0f0f0; font-weight: bold; }
-                .signature { margin-top: 50px; text-align: right; }
+                @page { size: A4; margin: 15mm 10mm; }
+                body { font-family: Arial, sans-serif; margin: 0; padding: 0; font-size: 11px; color: #111; }
+                .header { text-align: center; margin-bottom: 16px; }
+                .header h1 { margin: 0; font-size: 16px; font-weight: bold; letter-spacing: .3px; }
+                .header h2 { margin: 4px 0; font-size: 13px; font-weight: 600; color: #333; }
+                .meta { font-size: 10px; color: #555; text-align: center; margin-top: 4px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed; }
+                th, td { border: 1px solid #444; padding: 6px 8px; vertical-align: top; word-wrap: break-word; }
+                th { background-color: #f4f4f4; font-weight: 700; font-size: 11px; }
+                tbody tr:nth-child(even) { background: #fafafa; }
+                .signature { margin-top: 28px; display: flex; justify-content: flex-end; }
+                .signature .box { width: 260px; text-align: center; }
+                .small { font-size: 10px; color: #444; }
+                .nowrap { white-space: nowrap; }
+                .w-pegawai { width: 18%; }
+                .w-kegiatan { width: 22%; }
+                .w-tanggal { width: 10%; }
+                .w-hari { width: 10%; }
+                .w-aktivitas { width: 25%; }
+                .w-permasalahan { width: 15%; }
             </style>
         </head>
         <body>
@@ -342,18 +330,18 @@ function generateAllReportsHTML(reports) {
                 <h1>BADAN PUSAT STATISTIK</h1>
                 <h2>KABUPATEN TUBAN</h2>
                 <h2>LAPORAN SEMUA KEGIATAN PENGAWASAN LAPANGAN</h2>
+                <div class="meta">Digenerate: ${new Date().toLocaleDateString('id-ID')} • Total Laporan: ${reports.length}</div>
             </div>
             
             <table>
                 <thead>
                     <tr>
-                        <th>Nama Pegawai</th>
-                        <th>Kegiatan Pengawasan</th>
-                        <th>Tanggal</th>
-                        <th>Hari</th>
-                        <th>Aktivitas</th>
-                        <th>Permasalahan</th>
-                        <th>Dokumentasi</th>
+                        <th class="w-pegawai">Nama Pegawai</th>
+                        <th class="w-kegiatan">Kegiatan Pengawasan</th>
+                        <th class="w-tanggal nowrap">Tanggal</th>
+                        <th class="w-hari nowrap">Hari</th>
+                        <th class="w-aktivitas">Aktivitas</th>
+                        <th class="w-permasalahan">Permasalahan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -362,9 +350,9 @@ function generateAllReportsHTML(reports) {
             </table>
             
             <div class="signature">
-                <div class="signature-box">
+                <div class="box">
                     <p>Tuban, ${new Date().toLocaleDateString('id-ID')}</p>
-                    <p>Kepala BPS Kabupaten Tuban,</p>
+                    <p class="small">Kepala BPS Kabupaten Tuban,</p>
                     <br><br><br>
                     <p><u>_________________</u></p>
                 </div>
