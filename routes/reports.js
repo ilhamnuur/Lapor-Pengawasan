@@ -9,7 +9,7 @@ const fs = require('fs');
 
 // Create report (Pegawai only)
 router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
-    { name: 'foto_dokumentasi', maxCount: 6 }
+    { name: 'foto_dokumentasi[]', maxCount: 6 }
 ]), async (req, res) => {
     try {
         const {
@@ -36,8 +36,8 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
         const newReport = await db.get('SELECT * FROM reports WHERE id = ?', [result.id]);
 
         // Insert photo dokumentasi paths
-        if (req.files['foto_dokumentasi']) {
-            const photoInsertPromises = req.files['foto_dokumentasi'].map(photo => {
+        if (req.files['foto_dokumentasi[]']) {
+            const photoInsertPromises = req.files['foto_dokumentasi[]'].map(photo => {
                 return db.run(
                     `INSERT INTO report_photos (report_id, photo_path) VALUES (?, ?)`,
                     [newReport.id, normalizePath(photo.path)]
@@ -138,7 +138,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Update report (Pegawai only, own reports)
 router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields([
-    { name: 'foto_dokumentasi', maxCount: 6 }
+    { name: 'foto_dokumentasi[]', maxCount: 6 }
 ]), async (req, res) => {
     try {
         const { id } = req.params;
@@ -185,7 +185,7 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
         );
 
         // Handle photo updates
-        if (req.files['foto_dokumentasi']) {
+        if (req.files['foto_dokumentasi[]']) {
             // Delete old photos from filesystem and DB
             const oldPhotos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
             oldPhotos.forEach(photo => deleteFile(photo.photo_path));

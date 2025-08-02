@@ -117,6 +117,11 @@ function setupEventListeners() {
         addUserBtn.addEventListener('click', () => showUserForm());
     }
     
+    const uploadUsersBtn = document.getElementById('uploadUsersBtn');
+    if (uploadUsersBtn) {
+        uploadUsersBtn.addEventListener('click', showUploadUsersModal);
+    }
+
     const cancelUserBtn = document.getElementById('cancelUserBtn');
     if (cancelUserBtn) {
         cancelUserBtn.addEventListener('click', closeUserFormModal);
@@ -125,6 +130,21 @@ function setupEventListeners() {
     const closeUserFormModalBtn = document.getElementById('closeUserFormModal');
     if (closeUserFormModalBtn) {
         closeUserFormModalBtn.addEventListener('click', closeUserFormModal);
+    }
+    
+    const closeUploadUsersModalBtn = document.getElementById('closeUploadUsersModal');
+    if (closeUploadUsersModalBtn) {
+        closeUploadUsersModalBtn.addEventListener('click', closeUploadUsersModal);
+    }
+
+    const cancelUploadUsersBtn = document.getElementById('cancelUploadUsersBtn');
+    if (cancelUploadUsersBtn) {
+        cancelUploadUsersBtn.addEventListener('click', closeUploadUsersModal);
+    }
+
+    const uploadUsersForm = document.getElementById('uploadUsersForm');
+    if (uploadUsersForm) {
+        uploadUsersForm.addEventListener('submit', handleUploadUsers);
     }
     
     // Activity type management buttons
@@ -966,6 +986,52 @@ function deleteUser(userId) {
     if (modal && message) {
         message.textContent = 'Apakah Anda yakin ingin menghapus user ini?';
         modal.classList.remove('hidden');
+    }
+}
+
+function showUploadUsersModal() {
+    const modal = document.getElementById('uploadUsersModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeUploadUsersModal() {
+    const modal = document.getElementById('uploadUsersModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+async function handleUploadUsers(e) {
+    e.preventDefault();
+    showLoading();
+    
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch(`${API_BASE}/users/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showMessage(data.message || 'Users uploaded successfully!', 'success');
+            closeUploadUsersModal();
+            loadUsers();
+        } else {
+            showMessage(data.message || 'Failed to upload users', 'error');
+        }
+    } catch (error) {
+        console.error('Error uploading users:', error);
+        showMessage('An error occurred while uploading users', 'error');
+    } finally {
+        hideLoading();
     }
 }
 
