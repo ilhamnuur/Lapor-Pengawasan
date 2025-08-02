@@ -760,6 +760,20 @@ function showReportDetailModal(report) {
                 <p class="text-gray-900 whitespace-pre-wrap">${report.solusi_antisipasi || '-'}</p>
             </div>
             
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Foto Dokumentasi</label>
+                <div class="mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    ${report.foto_dokumentasi && report.foto_dokumentasi.length > 0 ?
+                        report.foto_dokumentasi.map(photoPath => `
+                            <div>
+                                <img src="/${photoPath.replace(/\\/g, '/')}" alt="Foto Dokumentasi" class="rounded-lg object-cover h-48 w-full">
+                            </div>
+                        `).join('') :
+                        '<p class="text-gray-500">Tidak ada foto dokumentasi.</p>'
+                    }
+                </div>
+            </div>
+            
             <div class="flex justify-end space-x-4 pt-4 border-t">
                 <button onclick="printReport(${report.id})" class="btn-primary px-4 py-2 rounded-md">
                     <div class="flex items-center space-x-2">

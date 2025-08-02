@@ -9,7 +9,7 @@ const fs = require('fs');
 
 // Create report (Pegawai only)
 router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
-    { name: 'foto_dokumentasi', maxCount: 10 }
+    { name: 'foto_dokumentasi', maxCount: 6 }
 ]), async (req, res) => {
     try {
         const {
@@ -138,7 +138,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Update report (Pegawai only, own reports)
 router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields([
-    { name: 'foto_dokumentasi', maxCount: 10 }
+    { name: 'foto_dokumentasi', maxCount: 6 }
 ]), async (req, res) => {
     try {
         const { id } = req.params;
