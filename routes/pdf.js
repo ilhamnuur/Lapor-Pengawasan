@@ -144,26 +144,36 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         font-weight: bold;
                         margin: 0;
                     }
-                    .photos-grid { 
-                        display: grid; 
-                        grid-template-columns: repeat(2, 1fr); 
-                        gap: 20px; 
-                        margin-top: 20px; 
+                    .photos-grid {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 16px;
+                        margin-top: 16px;
                     }
-                    .photo-item { 
-                        text-align: center; 
-                        page-break-inside: avoid; 
+                    .photo-item {
+                        text-align: center;
+                        page-break-inside: avoid;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: #fafafa;
+                        border: 1px solid #e5e7eb;
+                        border-radius: 6px;
+                        padding: 8px;
+                        height: 360px; /* container tinggi agar gambar bisa lebih besar dan proporsional */
+                        overflow: hidden;
                     }
-                    .photo-item img { 
-                        max-width: 100%; 
-                        max-height: 300px; 
-                        border: 1px solid #ddd; 
-                        border-radius: 4px; 
+                    .photo-item img {
+                        max-width: 100%;
+                        max-height: 100%;
+                        object-fit: contain; /* menjaga rasio, memenuhi container */
+                        image-rendering: auto;
+                        border-radius: 4px;
                     }
-                    .photo-caption { 
-                        font-size: 12px; 
-                        color: #666; 
-                        margin-top: 5px; 
+                    .photo-caption {
+                        font-size: 12px;
+                        color: #666;
+                        margin-top: 5px;
                     }
                 </style>
             </head>
@@ -310,13 +320,13 @@ function generateAllReportsHTML(reports) {
                     const fileExtension = path.extname(photoPath).slice(1);
                     const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
                     const dataUri = `data:${mimeType};base64,${imageAsBase64}`;
-                    return `<img src="${dataUri}" alt="Foto Dokumentasi" style="max-width: 100px; max-height: 100px; margin: 5px;">`;
+                    return `<div class="photo-item"><img src="${dataUri}" alt="Foto Dokumentasi"></div>`;
                 } catch (error) {
                     console.error(`Could not read file ${photoPath}:`, error);
-                    return `<span>Error</span>`;
+                    return `<div class="photo-item"><span style="font-size:12px;color:#999">Gagal memuat gambar</span></div>`;
                 }
             }).join('');
-            photosHTML = `<div style="display: flex; flex-wrap: wrap;">${photoElements}</div>`;
+            photosHTML = `<div class="photos-grid">${photoElements}</div>`;
         }
 
         return `
