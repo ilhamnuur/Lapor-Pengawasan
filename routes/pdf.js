@@ -206,11 +206,10 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         <div class="info-label">Kegiatan Pengawasan</div>
                         <div class="info-value">${report.kegiatan_pengawasan}</div>
 
-                        <div class="info-label">Tanggal Pelaksanaan</div>
-                        <div class="info-value">${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</div>
-
-                        <div class="info-label">Hari Pelaksanaan</div>
-                        <div class="info-value">${report.hari_pelaksanaan}</div>
+                        <div class="info-label">Tanggal/Hari Pelaksanaan</div>
+                        <div class="info-value">
+                            ${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </div>
 
                         <div class="info-label">Aktivitas yang Dilakukan</div>
                         <div class="info-value">${report.aktivitas}</div>

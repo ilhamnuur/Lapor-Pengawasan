@@ -15,7 +15,6 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
         const {
             kegiatan_pengawasan,
             tanggal_pelaksanaan,
-            hari_pelaksanaan,
             aktivitas,
             permasalahan,
             activity_type_id,
@@ -23,13 +22,21 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
             solusi_antisipasi
         } = req.body;
 
+        // Compute day from date to keep DB happy if column exists/required
+        const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        let computedHari = null;
+        if (tanggal_pelaksanaan) {
+            const d = new Date(tanggal_pelaksanaan);
+            if (!isNaN(d)) computedHari = dayNames[d.getDay()];
+        }
+
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
 
         const result = await db.run(
             `INSERT INTO reports (user_id, activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan,
              hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, hari_pelaksanaan,
+            [req.user.id, activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari,
              aktivitas, permasalahan, petugas_responden, solusi_antisipasi]
         );
 
@@ -145,7 +152,6 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
         const {
             kegiatan_pengawasan,
             tanggal_pelaksanaan,
-            hari_pelaksanaan,
             aktivitas,
             permasalahan,
             activity_type_id,
@@ -161,6 +167,13 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
 
         if (!existingReport) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
+        }
+
+        const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        let computedHari = existingReport.hari_pelaksanaan || null;
+        if (tanggal_pelaksanaan) {
+            const d = new Date(tanggal_pelaksanaan);
+            if (!isNaN(d)) computedHari = dayNames[d.getDay()];
         }
 
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
@@ -180,7 +193,7 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
              aktivitas = ?, permasalahan = ?, petugas_responden = ?, solusi_antisipasi = ?,
              updated_at = CURRENT_TIMESTAMP
              WHERE id = ? AND user_id = ?`,
-            [activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, hari_pelaksanaan, aktivitas,
+            [activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari, aktivitas,
              permasalahan, petugas_responden, solusi_antisipasi, id, req.user.id]
         );
 
@@ -192,7 +205,7 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
             await db.run('DELETE FROM report_photos WHERE report_id = ?', [id]);
 
             // Insert new photo paths
-            const photoInsertPromises = req.files['foto_dokumentasi'].map(photo => {
+            const photoInsertPromises = req.files['foto_dokumentasi[]'].map(photo => {
                 return db.run(
                     `INSERT INTO report_photos (report_id, photo_path) VALUES (?, ?)`,
                     [id, normalizePath(photo.path)]
