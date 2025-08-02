@@ -85,34 +85,6 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 </div>
             </div>`;
         }
-        // let photosHTML = '';
-        // if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
-        //     const photoElements = report.foto_dokumentasi.map(photoPath => {
-        //         try {
-        //             const imageAsBase64 = fs.readFileSync(photoPath, 'base64');
-        //             const fileExtension = path.extname(photoPath).slice(1);
-        //             const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-        //             const dataUri = `data:${mimeType};base64,${imageAsBase64}`;
-        //             return `<div class="photo-item">
-        //                 <img src="${dataUri}" alt="Foto Dokumentasi">
-        //             </div>`;
-        //         } catch (error) {
-        //             console.error(`Could not read file ${photoPath}:`, error);
-        //             return `<div class="photo-item"><p>Error loading image</p></div>`;
-        //         }
-        //     }).join('');
-
-        //     photosHTML = `
-        //     <div class="page-break"></div>
-        //     <div class="documentation-page">
-        //         <div class="documentation-header">
-        //             <h2>FOTO-FOTO DOKUMENTASI</h2>
-        //         </div>
-        //         <div class="photos-grid">
-        //             ${photoElements}
-        //         </div>
-        //     </div>`;
-        // }
 
         let htmlContent = `
             <!DOCTYPE html>
