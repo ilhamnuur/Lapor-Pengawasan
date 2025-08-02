@@ -126,9 +126,23 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                     .header h1 { margin: 0; font-size: 18px; font-weight: bold; }
                     .header h2 { margin: 5px 0; font-size: 16px; }
                     .content { margin: 20px 0; }
-                    .field { margin-bottom: 15px; }
-                    .field label { font-weight: bold; display: inline-block; width: 200px; }
-                    .field span { margin-left: 10px; }
+                    /* Grid dua kolom untuk meluruskan label dan nilai */
+                    .info-grid {
+                        display: grid;
+                        grid-template-columns: 220px 1fr; /* lebar label tetap + nilai fleksibel */
+                        gap: 8px 12px;
+                        align-items: center;
+                    }
+                    .info-label {
+                        font-weight: bold;
+                        white-space: nowrap;
+                    }
+                    .info-value {
+                        /* Pastikan sebaris, namun tetap wrap jika panjang */
+                        display: block;
+                        line-height: 1.4;
+                        word-break: break-word;
+                    }
                     .signature { margin-top: 50px; text-align: right; }
                     .signature-box { display: inline-block; text-align: center; }
                     .page-break { page-break-before: always; }
@@ -185,37 +199,30 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 </div>
                 
                 <div class="content">
-                    <div class="field">
-                        <label>Nama Pegawai:</label>
-                        <span>${report.pegawai_name}</span>
-                    </div>
-                    <div class="field">
-                        <label>Kegiatan Pengawasan:</label>
-                        <span>${report.kegiatan_pengawasan}</span>
-                    </div>
-                    <div class="field">
-                        <label>Tanggal Pelaksanaan:</label>
-                        <span>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</span>
-                    </div>
-                    <div class="field">
-                        <label>Hari Pelaksanaan:</label>
-                        <span>${report.hari_pelaksanaan}</span>
-                    </div>
-                    <div class="field">
-                        <label>Aktivitas yang Dilakukan:</label>
-                        <span>${report.aktivitas}</span>
-                    </div>
-                    <div class="field">
-                        <label>Permasalahan:</label>
-                        <span>${report.permasalahan || 'Tidak ada permasalahan'}</span>
-                    </div>
-                    <div class="field">
-                        <label>Petugas/Responden Ditemui:</label>
-                        <span>${report.petugas_responden || '-'}</span>
-                    </div>
-                    <div class="field">
-                        <label>Solusi/Langkah Antisipatif:</label>
-                        <span>${report.solusi_antisipasi || '-'}</span>
+                    <div class="info-grid">
+                        <div class="info-label">Nama Pegawai</div>
+                        <div class="info-value">${report.pegawai_name}</div>
+
+                        <div class="info-label">Kegiatan Pengawasan</div>
+                        <div class="info-value">${report.kegiatan_pengawasan}</div>
+
+                        <div class="info-label">Tanggal Pelaksanaan</div>
+                        <div class="info-value">${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</div>
+
+                        <div class="info-label">Hari Pelaksanaan</div>
+                        <div class="info-value">${report.hari_pelaksanaan}</div>
+
+                        <div class="info-label">Aktivitas yang Dilakukan</div>
+                        <div class="info-value">${report.aktivitas}</div>
+
+                        <div class="info-label">Permasalahan</div>
+                        <div class="info-value">${report.permasalahan || 'Tidak ada permasalahan'}</div>
+
+                        <div class="info-label">Petugas/Responden Ditemui</div>
+                        <div class="info-value">${report.petugas_responden || '-'}</div>
+
+                        <div class="info-label">Solusi/Langkah Antisipatif</div>
+                        <div class="info-value">${report.solusi_antisipasi || '-'}</div>
                     </div>
                 </div>
                 
