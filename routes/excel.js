@@ -5,7 +5,7 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
 
 // Export all reports to Excel (Kepala only)
-router.get('/all-reports', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
+router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
     try {
         // Get all reports with user and activity type information
         const reports = await db.all(`
