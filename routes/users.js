@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../config/database-sqlite');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
+const ExcelJS = require('exceljs');
 const multer = require('multer');
 const csv = require('csv-parser');
 const { Readable } = require('stream');
@@ -204,5 +205,46 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
             });
         });
 });
+ 
+// Download template Excel upload users (Kepala only)
+router.get('/template', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Template Users');
 
+        // Header
+        const headers = ['username', 'password', 'name', 'role'];
+        sheet.addRow(headers);
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+        // Example row
+        sheet.addRow(['userbaru1', 'Passw0rd!', 'User Baru 1', 'pegawai']);
+
+        // Column widths
+        sheet.columns = [
+            { width: 20 },
+            { width: 18 },
+            { width: 25 },
+            { width: 12 },
+        ];
+
+        // Notes
+        sheet.addRow([]);
+        sheet.addRow(['Keterangan: Kolom role hanya boleh bernilai "pegawai" atau "kepala"']);
+        sheet.mergeCells('A3:D3');
+        sheet.getCell('A3').font = { italic: true, color: { argb: 'FF666666' } };
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="template_upload_users.xlsx"');
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error('Error generating users template:', error);
+        res.status(500).json({ message: 'Gagal membuat template' });
+    }
+});
+ 
 module.exports = router;

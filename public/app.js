@@ -86,6 +86,16 @@ function setupEventListeners() {
     }
     
     // Buttons
+    // Activity Types: Download template + Upload Excel
+    const downloadActivityTypesTemplateBtn = document.getElementById('downloadActivityTypesTemplateBtn');
+    if (downloadActivityTypesTemplateBtn) {
+        downloadActivityTypesTemplateBtn.addEventListener('click', downloadActivityTypesTemplate);
+    }
+    const uploadActivityTypesBtn = document.getElementById('uploadActivityTypesBtn');
+    if (uploadActivityTypesBtn) {
+        uploadActivityTypesBtn.addEventListener('click', showUploadActivityTypesModal);
+    }
+
     const cancelCreateBtn = document.getElementById('cancelCreateBtn');
     if (cancelCreateBtn) {
         cancelCreateBtn.addEventListener('click', () => switchView('reports'));
@@ -117,6 +127,11 @@ function setupEventListeners() {
         addUserBtn.addEventListener('click', () => showUserForm());
     }
     
+    const downloadUsersTemplateBtn = document.getElementById('downloadUsersTemplateBtn');
+    if (downloadUsersTemplateBtn) {
+        downloadUsersTemplateBtn.addEventListener('click', downloadUsersTemplate);
+    }
+
     const uploadUsersBtn = document.getElementById('uploadUsersBtn');
     if (uploadUsersBtn) {
         uploadUsersBtn.addEventListener('click', showUploadUsersModal);
@@ -162,7 +177,22 @@ function setupEventListeners() {
     if (closeActivityTypeFormModalBtn) {
         closeActivityTypeFormModalBtn.addEventListener('click', closeActivityTypeFormModal);
     }
+
     
+    // Upload Activity Types modal handlers
+    const closeUploadActivityTypesModalBtn = document.getElementById('closeUploadActivityTypesModal');
+    if (closeUploadActivityTypesModalBtn) {
+        closeUploadActivityTypesModalBtn.addEventListener('click', closeUploadActivityTypesModal);
+    }
+    const cancelUploadActivityTypesBtn = document.getElementById('cancelUploadActivityTypesBtn');
+    if (cancelUploadActivityTypesBtn) {
+        cancelUploadActivityTypesBtn.addEventListener('click', closeUploadActivityTypesModal);
+    }
+    const uploadActivityTypesForm = document.getElementById('uploadActivityTypesForm');
+    if (uploadActivityTypesForm) {
+        uploadActivityTypesForm.addEventListener('submit', handleUploadActivityTypes);
+    }
+
     // Modals
     const closeDetailModal = document.getElementById('closeDetailModal');
     if (closeDetailModal) {
@@ -996,10 +1026,115 @@ function showUploadUsersModal() {
     }
 }
 
+function showUploadActivityTypesModal() {
+    const modal = document.getElementById('uploadActivityTypesModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeUploadActivityTypesModal() {
+    const modal = document.getElementById('uploadActivityTypesModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+async function downloadActivityTypesTemplate() {
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE}/activity-types/template`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'template_jenis_kegiatan.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            showMessage('Template jenis kegiatan berhasil didownload!', 'success');
+        } else {
+            const j = await response.json().catch(() => ({}));
+            throw new Error(j.message || 'Failed to download template');
+        }
+    } catch (error) {
+        console.error('Error downloading activity types template:', error);
+        showMessage('Gagal mendownload template jenis kegiatan', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function handleUploadActivityTypes(e) {
+    e.preventDefault();
+    showLoading();
+
+    try {
+        const formData = new FormData(e.target);
+        const response = await fetch(`${API_BASE}/activity-types/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            showMessage(data.message || 'Upload jenis kegiatan berhasil', 'success');
+            closeUploadActivityTypesModal();
+            loadActivityTypes();
+        } else {
+            showMessage(data.message || 'Gagal upload jenis kegiatan', 'error');
+        }
+    } catch (error) {
+        console.error('Error uploading activity types:', error);
+        showMessage('Terjadi kesalahan saat upload jenis kegiatan', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 function closeUploadUsersModal() {
     const modal = document.getElementById('uploadUsersModal');
     if (modal) {
         modal.classList.add('hidden');
+    }
+}
+
+async function downloadUsersTemplate() {
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE}/users/template`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'template_upload_users.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            showMessage('Template berhasil didownload!', 'success');
+        } else {
+            throw new Error('Failed to download template');
+        }
+    } catch (error) {
+        console.error('Error downloading template:', error);
+        showMessage('Gagal mendownload template', 'error');
+    } finally {
+        hideLoading();
     }
 }
 
