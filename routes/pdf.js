@@ -1,6 +1,7 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
 const path = require('path');
+const fs = require('fs');
 const db = require('../config/database-sqlite');
 const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
@@ -44,11 +45,18 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         let photosHTML = '';
         if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
             const photoElements = report.foto_dokumentasi.map(photoPath => {
-                // Assuming photoPath is now a full path like 'uploads/activity/2025-08/filename.jpg'
-                const fullPath = path.resolve(photoPath).replace(/\\/g, '/');
-                return `<div class="photo-item">
-                    <img src="file://${fullPath}" alt="Foto Dokumentasi">
-                </div>`;
+                try {
+                    const imageAsBase64 = fs.readFileSync(photoPath, 'base64');
+                    const fileExtension = path.extname(photoPath).slice(1);
+                    const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+                    const dataUri = `data:${mimeType};base64,${imageAsBase64}`;
+                    return `<div class="photo-item">
+                        <img src="${dataUri}" alt="Foto Dokumentasi">
+                    </div>`;
+                } catch (error) {
+                    console.error(`Could not read file ${photoPath}:`, error);
+                    return `<div class="photo-item"><p>Error loading image</p></div>`;
+                }
             }).join('');
 
             photosHTML = `
@@ -215,6 +223,11 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
             ORDER BY r.created_at DESC
         `);
 
+        for (const report of reports) {
+            const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [report.id]);
+            report.foto_dokumentasi = photos.map(photo => photo.photo_path);
+        }
+
         const htmlContent = generateAllReportsHTML(reports);
         
         const browser = await puppeteer.launch();
@@ -245,16 +258,36 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
 });
 
 function generateAllReportsHTML(reports) {
-    const reportRows = reports.map(report => `
-        <tr>
-            <td>${report.pegawai_name}</td>
-            <td>${report.kegiatan_pengawasan}</td>
-            <td>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</td>
-            <td>${report.hari_pelaksanaan}</td>
-            <td>${report.aktivitas.substring(0, 100)}${report.aktivitas.length > 100 ? '...' : ''}</td>
-            <td>${report.permasalahan ? report.permasalahan.substring(0, 100) + (report.permasalahan.length > 100 ? '...' : '') : 'Tidak ada'}</td>
-        </tr>
-    `).join('');
+    const reportRows = reports.map(report => {
+        let photosHTML = '';
+        if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
+            const photoElements = report.foto_dokumentasi.map(photoPath => {
+                try {
+                    const imageAsBase64 = fs.readFileSync(photoPath, 'base64');
+                    const fileExtension = path.extname(photoPath).slice(1);
+                    const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+                    const dataUri = `data:${mimeType};base64,${imageAsBase64}`;
+                    return `<img src="${dataUri}" alt="Foto Dokumentasi" style="max-width: 100px; max-height: 100px; margin: 5px;">`;
+                } catch (error) {
+                    console.error(`Could not read file ${photoPath}:`, error);
+                    return `<span>Error</span>`;
+                }
+            }).join('');
+            photosHTML = `<div style="display: flex; flex-wrap: wrap;">${photoElements}</div>`;
+        }
+
+        return `
+            <tr>
+                <td>${report.pegawai_name}</td>
+                <td>${report.kegiatan_pengawasan}</td>
+                <td>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</td>
+                <td>${report.hari_pelaksanaan}</td>
+                <td>${report.aktivitas}</td>
+                <td>${report.permasalahan || 'Tidak ada'}</td>
+                <td>${photosHTML}</td>
+            </tr>
+        `;
+    }).join('');
 
     return `
         <!DOCTYPE html>
@@ -289,6 +322,7 @@ function generateAllReportsHTML(reports) {
                         <th>Hari</th>
                         <th>Aktivitas</th>
                         <th>Permasalahan</th>
+                        <th>Dokumentasi</th>
                     </tr>
                 </thead>
                 <tbody>
