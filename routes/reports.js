@@ -231,19 +231,50 @@ router.delete('/:id', authenticateToken, authorizeRole(['pegawai']), async (req,
     try {
         const { id } = req.params;
 
-        const result = await db.run(
-            'DELETE FROM reports WHERE id = ? AND user_id = ?',
-            [id, req.user.id]
-        );
+        // Pastikan laporan milik user yang login
+        const report = await db.get('SELECT id FROM reports WHERE id = ? AND user_id = ?', [id, req.user.id]);
+        if (!report) {
+            return res.status(404).json({ message: 'Laporan tidak ditemukan' });
+        }
 
+        // Ambil daftar foto (sebelum menghapus DB) agar kita punya path untuk hapus file
+        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+
+        // Hapus laporan terlebih dahulu (ON DELETE CASCADE akan menghapus report_photos)
+        const result = await db.run('DELETE FROM reports WHERE id = ? AND user_id = ?', [id, req.user.id]);
         if (result.changes === 0) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
         }
 
-        res.json({ message: 'Laporan berhasil dihapus' });
+        // Best-effort hapus file fisik setelah data terhapus
+        for (const p of photos) {
+            const storedPath = p.photo_path;
+            if (!storedPath) continue;
+            try {
+                // Jika path relatif "uploads/..." buat absolut berdasarkan struktur server
+                let candidatePaths = [];
+                if (path.isAbsolute(storedPath)) {
+                    candidatePaths.push(storedPath);
+                } else {
+                    candidatePaths.push(path.join(__dirname, '..', storedPath));             // d:\Apps\Lapor-Pengawasan\uploads\...
+                    candidatePaths.push(path.join(process.cwd(), 'Lapor-Pengawasan', storedPath)); // fallback
+                }
+                // Coba hapus file pada kandidat path
+                for (const cand of candidatePaths) {
+                    if (fs.existsSync(cand)) {
+                        try { fs.unlinkSync(cand); } catch (e) { console.error('unlink failed:', cand, e); }
+                    }
+                }
+            } catch (err) {
+                console.error('Error removing photo file:', storedPath, err);
+            }
+        }
+
+        return res.json({ message: 'Laporan berhasil dihapus' });
     } catch (error) {
-        console.error(`Error deleting report with id ${req.params.id}:`, error);
-        res.status(500).json({ message: 'Server error while deleting report' });
+        // Tambahkan logging detail untuk diagnosa
+        console.error('Delete report error -> id:', req.params.id, 'user:', req.user?.id, error);
+        return res.status(500).json({ message: 'Server error while deleting report' });
     }
 });
 

@@ -557,7 +557,7 @@ function updateReportsTable() {
                     <button data-action="edit" data-id="${report.id}" class="text-yellow-600 hover:text-yellow-900">
                         Edit
                     </button>
-                    <button data-action="delete" data-id="${report.id}" class="text-red-600 hover:text-red-900">
+                    <button data-action="delete" data-id="${Number(report.id)}" class="text-red-600 hover:text-red-900">
                         Hapus
                     </button>
                 ` : ''}
@@ -904,7 +904,7 @@ function populateEditForm(report) {
 }
 
 function deleteReport(reportId) {
-    deleteItemId = reportId;
+    deleteItemId = Number(reportId);
     deleteItemType = 'report';
     const modal = document.getElementById('deleteConfirmModal');
     const message = document.getElementById('deleteConfirmMessage');
@@ -1269,58 +1269,70 @@ function closeDeleteConfirmModal() {
 }
 
 async function confirmDelete() {
-    if (!deleteItemId || !deleteItemType) return;
-    
+    // Validasi awal
+    if (deleteItemType == null) {
+        console.warn('confirmDelete: deleteItemType is null');
+        return;
+    }
+
+    const type = String(deleteItemType).toLowerCase().trim();
+
+    // Pastikan id valid number
+    const idNum = Number(deleteItemId);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        console.warn('confirmDelete: invalid deleteItemId', deleteItemId);
+        showMessage('ID item tidak valid. Coba ulangi aksi hapus.', 'error');
+        // Jangan lanjut request DELETE jika id invalid
+        closeDeleteConfirmModal();
+        return;
+    }
+
     showLoading();
     closeDeleteConfirmModal();
-    
+
     try {
-        let url;
-        switch (deleteItemType) {
-            case 'report':
-                url = `${API_BASE}/reports/${deleteItemId}`;
-                break;
-            case 'user':
-                url = `${API_BASE}/users/${deleteItemId}`;
-                break;
-            case 'activity-type':
-                url = `${API_BASE}/activity-types/${deleteItemId}`;
-                break;
-            default:
-                throw new Error('Invalid delete type');
+        let url = null;
+        if (type === 'report') {
+            url = `${API_BASE}/reports/${idNum}`;
+        } else if (type === 'user') {
+            url = `${API_BASE}/users/${idNum}`;
+        } else if (type === 'activity-type') {
+            url = `${API_BASE}/activity-types/${idNum}`;
+        } else {
+            console.warn('Unknown delete type, received:', deleteItemType);
+            throw new Error('Invalid delete type');
         }
-        
+
         const response = await fetch(url, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-        
+
         if (response.ok) {
             showMessage('Item berhasil dihapus!', 'success');
-            
-            // Reload appropriate data
-            switch (deleteItemType) {
-                case 'report':
-                    loadReports();
-                    break;
-                case 'user':
-                    loadUsers();
-                    break;
-                case 'activity-type':
-                    loadActivityTypes();
-                    break;
+
+            if (type === 'report') {
+                await loadReports();
+            } else if (type === 'user') {
+                await loadUsers();
+            } else if (type === 'activity-type') {
+                await loadActivityTypes();
             }
         } else {
-            const data = await response.json();
+            let data = {};
+            try { data = await response.json(); } catch {}
             showMessage(data.message || 'Gagal menghapus item', 'error');
         }
     } catch (error) {
         console.error('Error deleting item:', error);
-        showMessage('Terjadi kesalahan saat menghapus item', 'error');
+        showMessage(error?.message || 'Terjadi kesalahan saat menghapus item', 'error');
     } finally {
         hideLoading();
+        // Reset state untuk mencegah reuse nilai lama
+        deleteItemId = null;
+        deleteItemType = null;
     }
 }
 
