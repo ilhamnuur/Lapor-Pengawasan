@@ -6,6 +6,7 @@ const db = require('../config/database-sqlite');
 const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
+
 // Generate PDF for single report
 router.get('/report/:id', authenticateToken, async (req, res) => {
     try {
@@ -43,19 +44,33 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         
         // Generate photos HTML for second page
         let photosHTML = '';
-        if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
+        if (report.foto_dokumentasi?.length > 0) {
             const photoElements = report.foto_dokumentasi.map(photoPath => {
                 try {
-                    const imageAsBase64 = fs.readFileSync(photoPath, 'base64');
-                    const fileExtension = path.extname(photoPath).slice(1);
-                    const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-                    const dataUri = `data:${mimeType};base64,${imageAsBase64}`;
-                    return `<div class="photo-item">
+                    // 1. Dapatkan path absolut ke file
+                    const absolutePath = path.resolve(photoPath);
+
+                    // 2. Baca data file gambar
+                    const imageBuffer = fs.readFileSync(absolutePath);
+
+                    // 3. Konversi data ke string Base64
+                    const base64Image = imageBuffer.toString('base64');
+
+                    // 4. Dapatkan tipe file (misal: 'jpeg', 'png') untuk membuat data URI
+                    const fileType = path.extname(photoPath).substring(1);
+
+                    // 5. Buat data URI
+                    const dataUri = `data:image/${fileType};base64,${base64Image}`;
+
+                    return `
+                    <div class="photo-item">
                         <img src="${dataUri}" alt="Foto Dokumentasi">
                     </div>`;
+
                 } catch (error) {
-                    console.error(`Could not read file ${photoPath}:`, error);
-                    return `<div class="photo-item"><p>Error loading image</p></div>`;
+                    console.error(`Gagal memuat gambar: ${photoPath}`, error);
+                    // Return string kosong atau placeholder jika gambar gagal dimuat
+                    return '';
                 }
             }).join('');
 
@@ -70,6 +85,34 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 </div>
             </div>`;
         }
+        // let photosHTML = '';
+        // if (report.foto_dokumentasi && report.foto_dokumentasi.length > 0) {
+        //     const photoElements = report.foto_dokumentasi.map(photoPath => {
+        //         try {
+        //             const imageAsBase64 = fs.readFileSync(photoPath, 'base64');
+        //             const fileExtension = path.extname(photoPath).slice(1);
+        //             const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+        //             const dataUri = `data:${mimeType};base64,${imageAsBase64}`;
+        //             return `<div class="photo-item">
+        //                 <img src="${dataUri}" alt="Foto Dokumentasi">
+        //             </div>`;
+        //         } catch (error) {
+        //             console.error(`Could not read file ${photoPath}:`, error);
+        //             return `<div class="photo-item"><p>Error loading image</p></div>`;
+        //         }
+        //     }).join('');
+
+        //     photosHTML = `
+        //     <div class="page-break"></div>
+        //     <div class="documentation-page">
+        //         <div class="documentation-header">
+        //             <h2>FOTO-FOTO DOKUMENTASI</h2>
+        //         </div>
+        //         <div class="photos-grid">
+        //             ${photoElements}
+        //         </div>
+        //     </div>`;
+        // }
 
         let htmlContent = `
             <!DOCTYPE html>
