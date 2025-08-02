@@ -5,8 +5,6 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const multer = require('multer');
-const csv = require('csv-parser');
-const { Readable } = require('stream');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -145,65 +143,87 @@ router.delete('/:id', authenticateToken, authorizeRole(['kepala']), async (req, 
     }
 });
 
-// Upload users from CSV (Kepala only)
+// Upload users from Excel (.xlsx) (Kepala only)
 router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.single('usersFile'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: 'No file uploaded' });
-    }
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
 
-    const users = [];
-    const readable = new Readable();
-    readable._read = () => {}; // _read is required but you can noop it
-    readable.push(req.file.buffer);
-    readable.push(null);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(req.file.buffer);
+        const sheet = workbook.worksheets[0];
+        if (!sheet) {
+            return res.status(400).json({ message: 'Invalid Excel file' });
+        }
 
-    readable.pipe(csv())
-        .on('data', (data) => users.push(data))
-        .on('end', async () => {
-            let createdCount = 0;
-            let errorCount = 0;
-            const errors = [];
-
-            for (const user of users) {
-                try {
-                    const { username, password, name, role } = user;
-
-                    if (!username || !password || !name || !role) {
-                        errorCount++;
-                        errors.push(`Missing data for user: ${JSON.stringify(user)}`);
-                        continue;
-                    }
-
-                    if (!['pegawai', 'kepala'].includes(role)) {
-                        errorCount++;
-                        errors.push(`Invalid role for user: ${username}`);
-                        continue;
-                    }
-
-                    const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
-                    if (existingUser) {
-                        errorCount++;
-                        errors.push(`Username already exists: ${username}`);
-                        continue;
-                    }
-
-                    const hashedPassword = await bcrypt.hash(password, 10);
-                    await db.run(
-                        'INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
-                        [username, hashedPassword, name, role]
-                    );
-                    createdCount++;
-                } catch (error) {
-                    errorCount++;
-                    errors.push(`Error creating user ${user.username}: ${error.message}`);
-                }
+        // Expect header: username | password | name | role
+        // Find header row (assume row 1)
+        const headerMap = {};
+        const headerRow = sheet.getRow(1);
+        headerRow.eachCell((cell, col) => {
+            const key = String(cell.value).trim().toLowerCase();
+            if (['username', 'password', 'name', 'role'].includes(key)) {
+                headerMap[key] = col;
             }
-
-            res.status(201).json({
-                message: `Upload complete. ${createdCount} users created, ${errorCount} errors.`,
-                errors: errors
-            });
         });
+        const requiredHeaders = ['username', 'password', 'name', 'role'];
+        const missing = requiredHeaders.filter(h => !headerMap[h]);
+        if (missing.length) {
+            return res.status(400).json({ message: `Missing headers: ${missing.join(', ')}` });
+        }
+
+        let createdCount = 0;
+        let errorCount = 0;
+        const errors = [];
+
+        for (let r = 2; r <= sheet.rowCount; r++) {
+            const row = sheet.getRow(r);
+            // Skip empty rows
+            if (row.actualCellCount === 0) continue;
+
+            const username = (row.getCell(headerMap['username']).value || '').toString().trim();
+            const password = (row.getCell(headerMap['password']).value || '').toString().trim();
+            const name = (row.getCell(headerMap['name']).value || '').toString().trim();
+            const role = (row.getCell(headerMap['role']).value || '').toString().trim().toLowerCase();
+
+            try {
+                if (!username || !password || !name || !role) {
+                    errorCount++;
+                    errors.push(`Row ${r}: Missing data`);
+                    continue;
+                }
+                if (!['pegawai', 'kepala'].includes(role)) {
+                    errorCount++;
+                    errors.push(`Row ${r}: Invalid role "${role}"`);
+                    continue;
+                }
+                const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+                if (existingUser) {
+                    errorCount++;
+                    errors.push(`Row ${r}: Username already exists "${username}"`);
+                    continue;
+                }
+                const hashedPassword = await bcrypt.hash(password, 10);
+                await db.run(
+                    'INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
+                    [username, hashedPassword, name, role]
+                );
+                createdCount++;
+            } catch (e) {
+                errorCount++;
+                errors.push(`Row ${r}: ${e.message}`);
+            }
+        }
+
+        return res.status(201).json({
+            message: `Upload complete. ${createdCount} users created, ${errorCount} errors.`,
+            errors
+        });
+    } catch (err) {
+        console.error('Error processing Excel upload:', err);
+        return res.status(500).json({ message: 'Server error while processing Excel' });
+    }
 });
  
 // Download template Excel upload users (Kepala only)
