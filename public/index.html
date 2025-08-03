@@ -96,6 +96,7 @@
         }
         /* Responsive Table */
         @media (max-width: 768px) {
+            /* Reports Table */
             #reportsTableBody tr {
                 display: block;
                 margin-bottom: 1rem;
@@ -132,6 +133,164 @@
             }
             #reportsTableBody td:last-child::before {
                 content: none;
+            }
+
+            /* Users Table */
+            #usersTableBody tr {
+                display: block;
+                margin-bottom: 1rem;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.5rem;
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+                padding: 1rem;
+            }
+            #usersView thead {
+                display: none;
+            }
+            #usersTableBody td {
+                display: block;
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+                border: none;
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+            }
+            #usersTableBody td::before {
+                position: absolute;
+                left: 0.5rem;
+                width: 45%;
+                padding-right: 0.5rem;
+                text-align: left;
+                font-weight: 600;
+                color: #4b5563;
+            }
+            #usersTableBody td:nth-child(1)::before {
+                content: "Username";
+            }
+            #usersTableBody td:nth-child(2)::before {
+                content: "Nama";
+            }
+            #usersTableBody td:nth-child(3)::before {
+                content: "Role";
+            }
+            #usersTableBody td:nth-child(4)::before {
+                content: "Dibuat";
+            }
+            #usersTableBody td:last-child {
+                text-align: center;
+                padding-left: 0;
+            }
+            /* Hide label for action column on mobile to avoid "Aksi" appearing between buttons */
+            #usersTableBody td:last-child::before {
+                content: none;
+            }
+
+            /* Activity Types Table */
+            #activityTypesTableBody tr {
+                display: block;
+                margin-bottom: 1rem;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.5rem;
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+                padding: 1rem;
+            }
+            #activity-typesView thead {
+                display: none;
+            }
+            #activityTypesTableBody td {
+                display: block;
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+                border: none;
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+            }
+            #activityTypesTableBody td::before {
+                position: absolute;
+                left: 0.5rem;
+                width: 45%;
+                padding-right: 0.5rem;
+                text-align: left;
+                font-weight: 600;
+                color: #4b5563;
+            }
+            #activityTypesTableBody td:nth-child(1)::before {
+                content: "Nama";
+            }
+            #activityTypesTableBody td:nth-child(2)::before {
+                content: "Deskripsi";
+            }
+            #activityTypesTableBody td:nth-child(3)::before {
+                content: "Dibuat";
+            }
+            #activityTypesTableBody td:last-child {
+                text-align: center;
+                padding-left: 0;
+            }
+            /* Hide label for action column on mobile to avoid "Aksi" appearing between buttons */
+            #activityTypesTableBody td:last-child::before {
+                content: none;
+            }
+
+            /* Scoped mobile layout improvements for action areas */
+            /* Header sections stack neatly on mobile */
+            .mb-6.flex.flex-col.sm\\:flex-row {
+                gap: 0.75rem;
+                align-items: stretch;
+            }
+
+            /* Header action groups wrap on mobile */
+            .mb-6 .header-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                justify-content: center;
+                width: 100%;
+            }
+
+            /* Ensure action buttons inside table cells wrap and do not overlap */
+            #usersTableBody td:last-child,
+            #activityTypesTableBody td:last-child,
+            #reportsTableBody td:last-child {
+                text-align: center;
+                padding-left: 0;
+            }
+            #usersTableBody td:last-child .actions,
+            #activityTypesTableBody td:last-child .actions,
+            #reportsTableBody td:last-child .actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                justify-content: center;
+                width: 100%;
+            }
+
+            /* Make header buttons flexible on small screens */
+            #usersView .header-actions > button,
+            #activity-typesView .header-actions > button {
+                flex: 1 1 120px;
+            }
+
+            /* Generic table tweaks to prevent overlap on mobile */
+            table {
+                table-layout: fixed;
+                width: 100%;
+            }
+            th, td {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+        }
+
+        /* Extra small devices: reduce paddings to avoid overflow */
+        @media (max-width: 400px) {
+            #usersView .px-6, #usersView .py-3,
+            #activity-typesView .px-6, #activity-typesView .py-3 {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
             }
         }
     </style>
@@ -341,9 +500,9 @@
                             <h2 class="text-2xl font-bold text-gray-900 mb-2">Daftar Laporan Pengawasan</h2>
                             <p class="text-gray-600">Kelola semua laporan kegiatan pengawasan lapangan</p>
                         </div>
-                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 header-actions">
                             <!-- Search and Filter -->
-                            <div class="flex space-x-2">
+                            <div class="flex space-x-2 header-actions">
                                 <input type="text" id="searchReports" placeholder="Cari laporan..." 
                                        class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <select id="filterByMonth" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -585,7 +744,7 @@
                             <h2 class="text-2xl font-bold text-gray-900 mb-2">Manajemen User</h2>
                             <p class="text-gray-600">Kelola akun pengguna sistem</p>
                         </div>
-                        <div class="flex space-x-2">
+                        <div class="flex space-x-2 header-actions" style="flex-wrap: wrap; gap: .5rem; width: 100%; justify-content: center;">
                             <button id="downloadUsersTemplateBtn" class="btn-secondary px-4 py-2 rounded-md">
                                 <div class="flex items-center space-x-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -643,7 +802,7 @@
                             <h2 class="text-2xl font-bold text-gray-900 mb-2">Jenis Kegiatan</h2>
                             <p class="text-gray-600">Kelola jenis kegiatan pengawasan</p>
                         </div>
-                        <div class="flex space-x-2">
+                        <div class="flex space-x-2 header-actions" style="flex-wrap: wrap; gap: .5rem; width: 100%; justify-content: center;">
                             <button id="downloadActivityTypesTemplateBtn" class="btn-secondary px-4 py-2 rounded-md kepala-only hidden">
                                 <div class="flex items-center space-x-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

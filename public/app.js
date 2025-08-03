@@ -592,15 +592,17 @@ function updateUsersTable() {
             <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-900">${formatDate(user.created_at)}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                <button onclick="editUser(${user.id})" class="text-yellow-600 hover:text-yellow-900">
-                    Edit
-                </button>
-                ${user.id !== currentUser.id ? `
-                    <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-900">
-                        Hapus
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="actions flex flex-wrap gap-2 justify-center sm:justify-start">
+                    <button onclick="editUser(${user.id})" class="text-yellow-600 hover:text-yellow-900 px-2 py-1 rounded border border-yellow-200">
+                        Edit
                     </button>
-                ` : ''}
+                    ${user.id !== currentUser.id ? `
+                        <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-900 px-2 py-1 rounded border border-red-200">
+                            Hapus
+                        </button>
+                    ` : ''}
+                </div>
             </td>
         </tr>
     `).join('');
@@ -627,13 +629,15 @@ function updateActivityTypesTable() {
             <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-900">${formatDate(activityType.created_at)}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                <button onclick="editActivityType(${activityType.id})" class="text-yellow-600 hover:text-yellow-900">
-                    Edit
-                </button>
-                <button onclick="deleteActivityType(${activityType.id})" class="text-red-600 hover:text-red-900">
-                    Hapus
-                </button>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="actions flex flex-wrap gap-2 justify-center sm:justify-start">
+                    <button onclick="editActivityType(${activityType.id})" class="text-yellow-600 hover:text-yellow-900 px-2 py-1 rounded border border-yellow-200">
+                        Edit
+                    </button>
+                    <button onclick="deleteActivityType(${activityType.id})" class="text-red-600 hover:text-red-900 px-2 py-1 rounded border border-red-200">
+                        Hapus
+                    </button>
+                </div>
             </td>
         </tr>
     `).join('');
