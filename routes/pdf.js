@@ -165,7 +165,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             </head>
             <body>
                 <div class="header">
-                    <h1>LAPORAN KEGIATAN PERJALANAN DINAS</h1>
+                    <h1>LAPORAN PERJALANAN DINAS</h1>
                 </div>
                 
                 <div class="content">
