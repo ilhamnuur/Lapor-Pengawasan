@@ -175,7 +175,10 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         <div class="info-label">Nama Pegawai</div>
                         <div class="info-value">${report.pegawai_name}</div>
 
-                        <div class="info-label">Kegiatan Pengawasan</div>
+                        <div class="info-label">Nomor Surat Tugas</div>
+                        <div class="info-value">${report.nomor_surat_tugas || '-'}</div>
+
+                        <div class="info-label">Kegiatan yang Dilakukan</div>
                         <div class="info-value">${report.kegiatan_pengawasan}</div>
 
                         <div class="info-label">Tanggal/Hari Pelaksanaan</div>

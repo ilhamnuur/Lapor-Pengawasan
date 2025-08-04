@@ -53,6 +53,7 @@ router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req,
         const headers = [
             'No',
             'Nama Pegawai',
+            'Nomor Surat Tugas',
             'Jenis Kegiatan',
             'Kegiatan Pengawasan',
             'Tanggal Pelaksanaan',
@@ -77,6 +78,7 @@ router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req,
         worksheet.columns = [
             { width: 5 },   // No
             { width: 20 },  // Nama Pegawai
+            { width: 22 },  // Nomor Surat Tugas
             { width: 20 },  // Jenis Kegiatan
             { width: 30 },  // Kegiatan Pengawasan
             { width: 15 },  // Tanggal Pelaksanaan
@@ -93,6 +95,7 @@ router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req,
             const row = worksheet.addRow([
                 index + 1,
                 report.pegawai_name,
+                report.nomor_surat_tugas || '-',
                 report.activity_type_name || '-',
                 report.kegiatan_pengawasan,
                 new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID'),
@@ -208,7 +211,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
         worksheet.addRow([]);
 
         const headers = [
-            'No', 'Nama Pegawai', 'Jenis Kegiatan', 'Kegiatan Pengawasan',
+            'No', 'Nama Pegawai', 'Nomor Surat Tugas', 'Jenis Kegiatan', 'Kegiatan Pengawasan',
             'Tanggal Pelaksanaan', 'Hari Pelaksanaan', 'Aktivitas yang Dilakukan',
             'Permasalahan', 'Petugas/Responden Ditemui', 'Solusi/Langkah Antisipatif', 'Tanggal Dibuat'
         ];
@@ -222,7 +225,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
         };
 
         worksheet.columns = [
-            { width: 5 }, { width: 20 }, { width: 20 }, { width: 30 },
+            { width: 5 }, { width: 20 }, { width: 22 }, { width: 20 }, { width: 30 },
             { width: 15 }, { width: 15 }, { width: 40 }, { width: 30 }, { width: 30 }, { width: 40 }, { width: 15 }
         ];
 
@@ -230,6 +233,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
             const row = worksheet.addRow([
                 index + 1,
                 report.pegawai_name,
+                report.nomor_surat_tugas || '-',
                 report.activity_type_name || '-',
                 report.kegiatan_pengawasan,
                 new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID'),

@@ -535,7 +535,10 @@ function updateReportsTable() {
                 <div class="text-sm font-medium text-gray-900">${report.pegawai_name}</div>
             </td>
             <td data-label="Kegiatan" class="px-6 py-4">
-                <div class="text-sm text-gray-900">${report.kegiatan_pengawasan}</div>
+                <div class="text-sm text-gray-900">
+                    ${report.nomor_surat_tugas ? `<div class="text-xs text-gray-600 mb-1">No. ST: ${report.nomor_surat_tugas}</div>` : ''}
+                    <div>${report.kegiatan_pengawasan}</div>
+                </div>
             </td>
             <td data-label="Tanggal" class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-900">${formatDate(report.tanggal_pelaksanaan)}</div>
@@ -675,6 +678,10 @@ async function handleCreateReport(e) {
     showLoading();
     
     const formData = new FormData(e.target);
+    // Normalize optional fields
+    if (!formData.get('nomor_surat_tugas')) {
+        formData.set('nomor_surat_tugas', '');
+    }
     
     try {
         const response = await fetch(`${API_BASE}/reports`, {
@@ -709,6 +716,10 @@ async function handleEditReport(e) {
     
     const formData = new FormData(e.target);
     const reportId = formData.get('reportId');
+    // Normalize optional fields
+    if (!formData.get('nomor_surat_tugas')) {
+        formData.set('nomor_surat_tugas', '');
+    }
     
     try {
         const response = await fetch(`${API_BASE}/reports/${reportId}`, {
@@ -781,6 +792,10 @@ function showReportDetailModal(report) {
                     <p class="text-gray-900">${report.pegawai_name}</p>
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Surat Tugas</label>
+                    <p class="text-gray-900">${report.nomor_surat_tugas || '-'}</p>
+                </div>
+                <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Kegiatan Pengawasan</label>
                     <p class="text-gray-900">${report.kegiatan_pengawasan}</p>
                 </div>
@@ -832,7 +847,7 @@ function showReportDetailModal(report) {
                 <button onclick="printReport(${report.id})" class="btn-primary px-4 py-2 rounded-md">
                     <div class="flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H3a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H3a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 00-2-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                         </svg>
                         <span>Cetak PDF</span>
                     </div>
@@ -840,6 +855,10 @@ function showReportDetailModal(report) {
             </div>
         </div>
     `;
+    // Ensure report object reflects optional field for downstream usage
+    if (!report.nomor_surat_tugas) {
+        report.nomor_surat_tugas = '';
+    }
     
     modal.classList.remove('hidden');
 }
@@ -881,6 +900,7 @@ function populateEditForm(report) {
     const elements = {
         'editReportId': report.id,
         'editActivityType': report.activity_type_id,
+        'editNomorSuratTugas': report.nomor_surat_tugas || '',
         'editKegiatanPengawasan': report.kegiatan_pengawasan,
         'editTanggalPelaksanaan': report.tanggal_pelaksanaan,
         'editHariPelaksanaan': report.hari_pelaksanaan,

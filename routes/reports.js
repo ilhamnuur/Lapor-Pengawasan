@@ -13,6 +13,7 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
 ]), async (req, res) => {
     try {
         const {
+            nomor_surat_tugas,
             kegiatan_pengawasan,
             tanggal_pelaksanaan,
             aktivitas,
@@ -33,10 +34,10 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
 
         const result = await db.run(
-            `INSERT INTO reports (user_id, activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan,
+            `INSERT INTO reports (user_id, activity_type_id, nomor_surat_tugas, kegiatan_pengawasan, tanggal_pelaksanaan,
              hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.user.id, activity_type_id, nomor_surat_tugas || null, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari,
              aktivitas, permasalahan, petugas_responden, solusi_antisipasi]
         );
 
@@ -72,19 +73,31 @@ router.get('/', authenticateToken, async (req, res) => {
         if (req.user.role === 'kepala') {
             // Kepala can see all reports
             query = `
-                SELECT r.*, u.name as pegawai_name 
-                FROM reports r 
-                JOIN users u ON r.user_id = u.id 
+                SELECT
+                    r.id, r.user_id, r.activity_type_id,
+                    r.nomor_surat_tugas,
+                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
+                    r.created_at, r.updated_at,
+                    u.name as pegawai_name
+                FROM reports r
+                JOIN users u ON r.user_id = u.id
                 ORDER BY r.created_at DESC
             `;
             params = [];
         } else {
             // Pegawai can only see their own reports
             query = `
-                SELECT r.*, u.name as pegawai_name 
-                FROM reports r 
-                JOIN users u ON r.user_id = u.id 
-                WHERE r.user_id = ? 
+                SELECT
+                    r.id, r.user_id, r.activity_type_id,
+                    r.nomor_surat_tugas,
+                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
+                    r.created_at, r.updated_at,
+                    u.name as pegawai_name
+                FROM reports r
+                JOIN users u ON r.user_id = u.id
+                WHERE r.user_id = ?
                 ORDER BY r.created_at DESC
             `;
             params = [req.user.id];
@@ -107,18 +120,32 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
         if (req.user.role === 'kepala') {
             query = `
-                SELECT r.*, u.name as pegawai_name, at.name as activity_type_name
-                FROM reports r 
-                JOIN users u ON r.user_id = u.id 
+                SELECT
+                    r.id, r.user_id, r.activity_type_id,
+                    COALESCE(NULLIF(r.nomor_surat_tugas, ''), NULL) AS nomor_surat_tugas,
+                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
+                    r.created_at, r.updated_at,
+                    u.name as pegawai_name,
+                    at.name as activity_type_name
+                FROM reports r
+                JOIN users u ON r.user_id = u.id
                 LEFT JOIN activity_types at ON r.activity_type_id = at.id
                 WHERE r.id = ?
             `;
             params = [id];
         } else {
             query = `
-                SELECT r.*, u.name as pegawai_name, at.name as activity_type_name
-                FROM reports r 
-                JOIN users u ON r.user_id = u.id 
+                SELECT
+                    r.id, r.user_id, r.activity_type_id,
+                    COALESCE(NULLIF(r.nomor_surat_tugas, ''), NULL) AS nomor_surat_tugas,
+                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
+                    r.created_at, r.updated_at,
+                    u.name as pegawai_name,
+                    at.name as activity_type_name
+                FROM reports r
+                JOIN users u ON r.user_id = u.id
                 LEFT JOIN activity_types at ON r.activity_type_id = at.id
                 WHERE r.id = ? AND r.user_id = ?
             `;
@@ -150,6 +177,7 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
     try {
         const { id } = req.params;
         const {
+            nomor_surat_tugas,
             kegiatan_pengawasan,
             tanggal_pelaksanaan,
             aktivitas,
@@ -189,11 +217,11 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
 
         await db.run(
             `UPDATE reports SET
-             activity_type_id = ?, kegiatan_pengawasan = ?, tanggal_pelaksanaan = ?, hari_pelaksanaan = ?,
+             activity_type_id = ?, nomor_surat_tugas = ?, kegiatan_pengawasan = ?, tanggal_pelaksanaan = ?, hari_pelaksanaan = ?,
              aktivitas = ?, permasalahan = ?, petugas_responden = ?, solusi_antisipasi = ?,
              updated_at = CURRENT_TIMESTAMP
              WHERE id = ? AND user_id = ?`,
-            [activity_type_id, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari, aktivitas,
+            [activity_type_id, nomor_surat_tugas || null, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari, aktivitas,
              permasalahan, petugas_responden, solusi_antisipasi, id, req.user.id]
         );
 

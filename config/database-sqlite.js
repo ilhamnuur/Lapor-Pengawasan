@@ -76,6 +76,7 @@ const initDatabase = async () => {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 activity_type_id INTEGER,
+                nomor_surat_tugas VARCHAR(100),
                 kegiatan_pengawasan VARCHAR(255) NOT NULL,
                 tanggal_pelaksanaan DATE NOT NULL,
                 hari_pelaksanaan VARCHAR(20) NOT NULL,
@@ -99,6 +100,9 @@ const initDatabase = async () => {
         }
         if (!reportsColumnNames.includes('solusi_antisipasi')) {
             await dbAsync.exec('ALTER TABLE reports ADD COLUMN solusi_antisipasi TEXT');
+        }
+        if (!reportsColumnNames.includes('nomor_surat_tugas')) {
+            await dbAsync.exec('ALTER TABLE reports ADD COLUMN nomor_surat_tugas VARCHAR(100)');
         }
 
         // Create report_photos table
