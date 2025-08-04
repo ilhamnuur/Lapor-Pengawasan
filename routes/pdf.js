@@ -165,9 +165,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             </head>
             <body>
                 <div class="header">
-                    <h1>BADAN PUSAT STATISTIK</h1>
-                    <h2>KABUPATEN TUBAN</h2>
-                    <h2>LAPORAN KEGIATAN PENGAWASAN LAPANGAN</h2>
+                    <h1>LAPORAN KEGIATAN PERJALANAN DINAS</h1>
                 </div>
                 
                 <div class="content">
@@ -189,7 +187,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         <div class="info-label">Aktivitas yang Dilakukan</div>
                         <div class="info-value">${report.aktivitas}</div>
 
-                        <div class="info-label">Permasalahan</div>
+                        <div class="info-label">Permasalahan yang ditemui</div>
                         <div class="info-value">${report.permasalahan || 'Tidak ada permasalahan'}</div>
 
                         <div class="info-label">Petugas/Responden Ditemui</div>

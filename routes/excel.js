@@ -59,7 +59,7 @@ router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req,
             'Tanggal Pelaksanaan',
             'Hari Pelaksanaan',
             'Aktivitas yang Dilakukan',
-            'Permasalahan',
+            'Permasalahan yang ditemui',
             'Petugas/Responden Ditemui',
             'Solusi/Langkah Antisipatif',
             'Tanggal Dibuat'
@@ -84,7 +84,7 @@ router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req,
             { width: 15 },  // Tanggal Pelaksanaan
             { width: 15 },  // Hari Pelaksanaan
             { width: 40 },  // Aktivitas
-            { width: 30 },  // Permasalahan
+            { width: 30 },  // Permasalahan yang Ditemui
             { width: 30 },  // Petugas/Responden
             { width: 40 },  // Solusi/Antisipasi
             { width: 15 }   // Tanggal Dibuat
@@ -213,7 +213,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
         const headers = [
             'No', 'Nama Pegawai', 'Nomor Surat Tugas', 'Jenis Kegiatan', 'Kegiatan Pengawasan',
             'Tanggal Pelaksanaan', 'Hari Pelaksanaan', 'Aktivitas yang Dilakukan',
-            'Permasalahan', 'Petugas/Responden Ditemui', 'Solusi/Langkah Antisipatif', 'Tanggal Dibuat'
+            'Permasalahan yang ditemui', 'Petugas/Responden Ditemui', 'Solusi/Langkah Antisipatif', 'Tanggal Dibuat'
         ];
 
         const headerRow = worksheet.addRow(headers);
