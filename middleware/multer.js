@@ -53,7 +53,7 @@ const storage = multer.diskStorage({
 });
 
 
-const upload = multer({ 
+const upload = multer({
     storage: storage,
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
@@ -66,7 +66,8 @@ const upload = multer({
             cb(new Error('File type not allowed'));
         }
     },
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    // Increase per-file limit to 20 MB
+    limits: { fileSize: 20 * 1024 * 1024 } // 20MB per file
 });
 
 module.exports = upload;
