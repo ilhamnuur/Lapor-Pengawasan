@@ -55,7 +55,7 @@ router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req,
             'Nama Pegawai',
             'Nomor Surat Tugas',
             'Jenis Kegiatan',
-            'Kegiatan Pengawasan',
+            'Tujuan Perjalanan Dinas',
             'Tanggal Pelaksanaan',
             'Hari Pelaksanaan',
             'Aktivitas yang Dilakukan',
@@ -97,7 +97,7 @@ router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req,
                 report.pegawai_name,
                 report.nomor_surat_tugas || '-',
                 report.activity_type_name || '-',
-                report.kegiatan_pengawasan,
+                report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan,
                 new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID'),
                 report.hari_pelaksanaan,
                 report.aktivitas,
@@ -211,7 +211,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
         worksheet.addRow([]);
 
         const headers = [
-            'No', 'Nama Pegawai', 'Nomor Surat Tugas', 'Jenis Kegiatan', 'Kegiatan Pengawasan',
+            'No', 'Nama Pegawai', 'Nomor Surat Tugas', 'Jenis Kegiatan', 'Tujuan Perjalanan Dinas',
             'Tanggal Pelaksanaan', 'Hari Pelaksanaan', 'Aktivitas yang Dilakukan',
             'Permasalahan yang ditemui', 'Petugas/Responden Ditemui', 'Solusi/Langkah Antisipatif', 'Tanggal Dibuat'
         ];
@@ -235,7 +235,7 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
                 report.pegawai_name,
                 report.nomor_surat_tugas || '-',
                 report.activity_type_name || '-',
-                report.kegiatan_pengawasan,
+                report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan,
                 new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID'),
                 report.hari_pelaksanaan,
                 report.aktivitas,

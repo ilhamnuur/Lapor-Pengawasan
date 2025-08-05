@@ -499,7 +499,7 @@ function loadRecentReports() {
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pegawai</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kegiatan</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tujuan Perjalanan Dinas</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                     </tr>
                 </thead>
@@ -507,7 +507,7 @@ function loadRecentReports() {
                     ${recentReports.map(report => `
                         <tr>
                             <td class="px-4 py-3 text-sm">${report.pegawai_name}</td>
-                            <td class="px-4 py-3 text-sm">${report.kegiatan_pengawasan}</td>
+                            <td class="px-4 py-3 text-sm">${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</td>
                             <td class="px-4 py-3 text-sm">${formatDate(report.tanggal_pelaksanaan)}</td>
                         </tr>
                     `).join('')}
@@ -534,10 +534,10 @@ function updateReportsTable() {
             <td data-label="Pegawai" class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">${report.pegawai_name}</div>
             </td>
-            <td data-label="Kegiatan" class="px-6 py-4">
+            <td data-label="Tujuan Perjalanan Dinas" class="px-6 py-4">
                 <div class="text-sm text-gray-900">
                     ${report.nomor_surat_tugas ? `<div class="text-xs text-gray-600 mb-1">No. ST: ${report.nomor_surat_tugas}</div>` : ''}
-                    <div>${report.kegiatan_pengawasan}</div>
+                    <div>${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</div>
                 </div>
             </td>
             <td data-label="Tanggal" class="px-6 py-4 whitespace-nowrap">
@@ -796,8 +796,8 @@ function showReportDetailModal(report) {
                     <p class="text-gray-900">${report.nomor_surat_tugas || '-'}</p>
                 </div>
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Kegiatan Pengawasan</label>
-                    <p class="text-gray-900">${report.kegiatan_pengawasan}</p>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tujuan Perjalanan Dinas</label>
+                    <p class="text-gray-900">${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pelaksanaan</label>
@@ -1467,11 +1467,12 @@ function filterReports() {
     const selectedMonth = document.getElementById('filterByMonth')?.value || '';
     
     filteredReports = reports.filter(report => {
-        const matchesSearch = report.kegiatan_pengawasan.toLowerCase().includes(searchTerm) ||
-                            report.pegawai_name.toLowerCase().includes(searchTerm) ||
-                            report.aktivitas.toLowerCase().includes(searchTerm);
+        const tujuan = (report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '').toLowerCase();
+        const matchesSearch = tujuan.includes(searchTerm) ||
+                              (report.pegawai_name || '').toLowerCase().includes(searchTerm) ||
+                              (report.aktivitas || '').toLowerCase().includes(searchTerm);
         
-        const matchesMonth = !selectedMonth || 
+        const matchesMonth = !selectedMonth ||
                            new Date(report.tanggal_pelaksanaan).getMonth() + 1 === parseInt(selectedMonth);
         
         return matchesSearch && matchesMonth;

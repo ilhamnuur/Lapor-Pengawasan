@@ -189,8 +189,8 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         <div class="info-label">Nomor Surat Tugas</div>
                         <div class="info-value">${report.nomor_surat_tugas || '-'}</div>
 
-                        <div class="info-label">Kegiatan yang Dilakukan</div>
-                        <div class="info-value">${report.kegiatan_pengawasan}</div>
+                        <div class="info-label">Tujuan Perjalanan Dinas</div>
+                        <div class="info-value">${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</div>
 
                         <div class="info-label">Tanggal/Hari Pelaksanaan</div>
                         <div class="info-value">
@@ -304,7 +304,7 @@ function generateAllReportsHTML(reports) {
     const reportRows = reports.map(report => `
         <tr>
             <td>${report.pegawai_name}</td>
-            <td>${report.kegiatan_pengawasan}</td>
+            <td>${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</td>
             <td>${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID')}</td>
             <td>${report.hari_pelaksanaan || '-'}</td>
             <td>${(report.aktivitas || '').replace(/\s+/g, ' ').trim()}</td>

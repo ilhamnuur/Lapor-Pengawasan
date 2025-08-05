@@ -91,6 +91,61 @@ const initDatabase = async () => {
             )
         `);
 
+        // BEGIN: SQLite-safe migration - rename 'kegiatan_pengawasan' -> 'tujuan_perjalanan_dinas'
+        try {
+            const reportsColumnsBefore = await dbAsync.all('PRAGMA table_info(reports)');
+            const hasTujuan = reportsColumnsBefore.some(c => c.name === 'tujuan_perjalanan_dinas');
+            const hasKegiatan = reportsColumnsBefore.some(c => c.name === 'kegiatan_pengawasan');
+
+            if (!hasTujuan && hasKegiatan) {
+                console.log('[DB MIGRATION] Renaming reports.kegiatan_pengawasan -> reports.tujuan_perjalanan_dinas');
+
+                // Create a new table with desired schema
+                await dbAsync.exec(`
+                    PRAGMA foreign_keys=off;
+                    BEGIN TRANSACTION;
+
+                    CREATE TABLE reports_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        activity_type_id INTEGER,
+                        nomor_surat_tugas VARCHAR(100),
+                        tujuan_perjalanan_dinas VARCHAR(255) NOT NULL,
+                        tanggal_pelaksanaan DATE NOT NULL,
+                        hari_pelaksanaan VARCHAR(20) NOT NULL,
+                        aktivitas TEXT NOT NULL,
+                        permasalahan TEXT,
+                        petugas_responden TEXT,
+                        solusi_antisipasi TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id),
+                        FOREIGN KEY (activity_type_id) REFERENCES activity_types(id)
+                    );
+
+                    INSERT INTO reports_new (
+                        id, user_id, activity_type_id, nomor_surat_tugas, tujuan_perjalanan_dinas, tanggal_pelaksanaan,
+                        hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi, created_at, updated_at
+                    )
+                    SELECT
+                        id, user_id, activity_type_id, nomor_surat_tugas, kegiatan_pengawasan, tanggal_pelaksanaan,
+                        hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi, created_at, updated_at
+                    FROM reports;
+
+                    DROP TABLE reports;
+                    ALTER TABLE reports_new RENAME TO reports;
+
+                    COMMIT;
+                    PRAGMA foreign_keys=on;
+                `);
+
+                console.log('[DB MIGRATION] Migration completed: tujuan_perjalanan_dinas in place.');
+            }
+        } catch (mErr) {
+            console.error('[DB MIGRATION] Failed migrating kegiatan_pengawasan -> tujuan_perjalanan_dinas:', mErr);
+        }
+        // END MIGRATION
+
         // Simple migration to add new columns if they don't exist
         const reportsColumns = await dbAsync.all('PRAGMA table_info(reports)');
         const reportsColumnNames = reportsColumns.map(c => c.name);

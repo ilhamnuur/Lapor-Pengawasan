@@ -14,7 +14,7 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
     try {
         const {
             nomor_surat_tugas,
-            kegiatan_pengawasan,
+            tujuan_perjalanan_dinas,
             tanggal_pelaksanaan,
             aktivitas,
             permasalahan,
@@ -34,10 +34,10 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
 
         const result = await db.run(
-            `INSERT INTO reports (user_id, activity_type_id, nomor_surat_tugas, kegiatan_pengawasan, tanggal_pelaksanaan,
+            `INSERT INTO reports (user_id, activity_type_id, nomor_surat_tugas, tujuan_perjalanan_dinas, tanggal_pelaksanaan,
              hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, activity_type_id, nomor_surat_tugas || null, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari,
+            [req.user.id, activity_type_id, nomor_surat_tugas || null, tujuan_perjalanan_dinas, tanggal_pelaksanaan, computedHari,
              aktivitas, permasalahan, petugas_responden, solusi_antisipasi]
         );
 
@@ -76,7 +76,7 @@ router.get('/', authenticateToken, async (req, res) => {
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
                     r.nomor_surat_tugas,
-                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.tujuan_perjalanan_dinas, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
                     u.name as pegawai_name
@@ -91,7 +91,7 @@ router.get('/', authenticateToken, async (req, res) => {
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
                     r.nomor_surat_tugas,
-                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.tujuan_perjalanan_dinas, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
                     u.name as pegawai_name
@@ -123,7 +123,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
                     COALESCE(NULLIF(r.nomor_surat_tugas, ''), NULL) AS nomor_surat_tugas,
-                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.tujuan_perjalanan_dinas, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
                     u.name as pegawai_name,
@@ -139,7 +139,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
                     COALESCE(NULLIF(r.nomor_surat_tugas, ''), NULL) AS nomor_surat_tugas,
-                    r.kegiatan_pengawasan, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
+                    r.tujuan_perjalanan_dinas, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
                     u.name as pegawai_name,
@@ -178,7 +178,7 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
         const { id } = req.params;
         const {
             nomor_surat_tugas,
-            kegiatan_pengawasan,
+            tujuan_perjalanan_dinas,
             tanggal_pelaksanaan,
             aktivitas,
             permasalahan,
@@ -217,11 +217,11 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
 
         await db.run(
             `UPDATE reports SET
-             activity_type_id = ?, nomor_surat_tugas = ?, kegiatan_pengawasan = ?, tanggal_pelaksanaan = ?, hari_pelaksanaan = ?,
+             activity_type_id = ?, nomor_surat_tugas = ?, tujuan_perjalanan_dinas = ?, tanggal_pelaksanaan = ?, hari_pelaksanaan = ?,
              aktivitas = ?, permasalahan = ?, petugas_responden = ?, solusi_antisipasi = ?,
              updated_at = CURRENT_TIMESTAMP
              WHERE id = ? AND user_id = ?`,
-            [activity_type_id, nomor_surat_tugas || null, kegiatan_pengawasan, tanggal_pelaksanaan, computedHari, aktivitas,
+            [activity_type_id, nomor_surat_tugas || null, tujuan_perjalanan_dinas, tanggal_pelaksanaan, computedHari, aktivitas,
              permasalahan, petugas_responden, solusi_antisipasi, id, req.user.id]
         );
 
