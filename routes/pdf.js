@@ -215,10 +215,10 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 
                 <div class="signature">
                     <div class="signature-box">
-                        <p>Tuban, ${new Date().toLocaleDateString('id-ID')}</p>
+                        <p>Tuban, ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                         <p>Pegawai,</p>
                         <br><br><br>
-                        <p><u>${report.pegawai_name}</u></p>
+                        <p>${report.pegawai_name}</p>
                     </div>
                 </div>
 
