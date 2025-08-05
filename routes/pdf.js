@@ -102,20 +102,29 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                     .info-grid {
                         display: grid;
                         grid-template-columns: 220px 1fr; /* lebar label tetap + nilai fleksibel */
-                        gap: 8px 12px;
-                        align-items: center;
+                        column-gap: 12px;
+                        row-gap: 8px;
+                        align-items: start; /* pastikan label dan nilai mulai di garis atas yang sama */
                     }
                     .info-label {
                         font-weight: bold;
                         white-space: nowrap;
+                        align-self: start; /* sejajarkan ke atas baris */
+                        padding-top: 2px;  /* sedikit offset visual agar optik sejajar dengan teks nilai */
                     }
                     .info-value {
-                        /* Pastikan sebaris, namun tetap wrap jika panjang */
+                        /* Nilai tetap mulai pada kolom kedua, baris yang sama dengan label */
                         display: block;
                         line-height: 1.4;
                         word-break: break-word;
+                        margin: 0; /* hilangkan margin default yang mungkin menggeser vertikal */
                     }
                     .signature { margin-top: 50px; text-align: right; }
+                    /* Spacing helpers */
+                    /* Gunakan jarak antar baris yang konsisten seperti antar "Nomor Surat Tugas" -> "Kegiatan" */
+                    .row-gap { height: 8px; }        /* jarak kecil standar antar pasangan label-nilai */
+                    .pegawai-to-title-spacer { height: 8px; } /* set sama seperti row-gap agar konsisten */
+                    .block-gap-50 { height: 50px; }  /* jarak khusus 50px (tanggal -> aktivitas) */
                     .signature-box { display: inline-block; text-align: center; }
                     .page-break { page-break-before: always; }
                     .documentation-page { margin-top: 40px; }
@@ -171,7 +180,11 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 <div class="content">
                     <div class="info-grid">
                         <div class="info-label">Nama Pegawai</div>
-                        <div class="info-value">${report.pegawai_name}</div>
+                        <div class="info-value">
+                            ${report.pegawai_name}
+                        </div>
+                        <!-- Spacer kecil konsisten antar baris, sama seperti jarak Nomor Surat Tugas -> Kegiatan -->
+                        <div></div><div class="pegawai-to-title-spacer"></div>
 
                         <div class="info-label">Nomor Surat Tugas</div>
                         <div class="info-value">${report.nomor_surat_tugas || '-'}</div>
@@ -183,12 +196,14 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         <div class="info-value">
                             ${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </div>
+                        <!-- Spacer 50px antar baris setelah pasangan label-nilai (tanggal -> aktivitas) -->
+                        <div></div><div class="block-gap-50"></div>
 
                         <div class="info-label">Aktivitas yang Dilakukan</div>
                         <div class="info-value">${report.aktivitas}</div>
 
                         <div class="info-label">Permasalahan yang ditemui</div>
-                        <div class="info-value">${report.permasalahan || 'Tidak ada permasalahan'}</div>
+                        <div class="info-value" style="margin-top:12px;">${report.permasalahan || 'Tidak ada permasalahan'}</div>
 
                         <div class="info-label">Petugas/Responden Ditemui</div>
                         <div class="info-value">${report.petugas_responden || '-'}</div>
@@ -222,9 +237,9 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             format: 'A4',
             printBackground: true,
             margin: {
-                top: '20mm',
+                top: '15mm',
                 right: '15mm',
-                bottom: '20mm',
+                bottom: '15mm',
                 left: '15mm'
             }
         });
