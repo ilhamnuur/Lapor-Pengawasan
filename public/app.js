@@ -697,6 +697,8 @@ async function handleCreateReport(e) {
         if (response.ok) {
             showMessage('Laporan berhasil dibuat!', 'success');
             resetCreateForm();
+            // Bersihkan form state tersimpan agar tidak mengisi ulang
+            if (window.__formPersistence) window.__formPersistence.clear('createReport');
             switchView('reports');
             loadReports();
         } else {
@@ -741,6 +743,8 @@ async function handleEditReport(e) {
         
         if (response.ok) {
             showMessage('Laporan berhasil diupdate!', 'success');
+            // Bersihkan form state tersimpan agar tidak mengisi ulang
+            if (window.__formPersistence) window.__formPersistence.clear('editReport');
             switchView('reports');
             loadReports();
         } else {
@@ -784,6 +788,85 @@ async function viewReportDetail(reportId) {
         hideLoading();
     }
 }
+
+// =================== FORM STATE PERSISTENCE ===================
+// Simpan nilai form ke localStorage agar tidak hilang saat reload
+(function setupFormPersistence() {
+    // Mapping form id -> storage key prefix
+    const forms = [
+        { id: 'createReportForm', key: 'createReport' },
+        { id: 'editReportForm', key: 'editReport' }
+    ];
+
+    function saveFormToStorage(formEl, keyPrefix) {
+        if (!formEl) return;
+        const data = {};
+        Array.from(formEl.elements).forEach(el => {
+            if (!el.name) return;
+            if (el.type === 'file') return;
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                data[el.name] = el.checked;
+            } else {
+                data[el.name] = el.value;
+            }
+        });
+        try {
+            localStorage.setItem(`formState:${keyPrefix}`, JSON.stringify(data));
+        } catch (e) {
+            // ignore quota errors
+        }
+    }
+
+    function restoreFormFromStorage(formEl, keyPrefix) {
+        if (!formEl) return;
+        const raw = localStorage.getItem(`formState:${keyPrefix}`);
+        if (!raw) return;
+        let data = {};
+        try { data = JSON.parse(raw) || {}; } catch { data = {}; }
+        Array.from(formEl.elements).forEach(el => {
+            if (!el.name) return;
+            if (!(el.name in data)) return;
+            if (el.type === 'file') return;
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                el.checked = !!data[el.name];
+            } else {
+                // Jangan overwrite jika element punya value yang lebih baru via populate
+                if (el.value === '' || el.dataset.allowRestore === 'force') {
+                    el.value = data[el.name] ?? '';
+                }
+            }
+        });
+    }
+
+    function clearFormStorage(keyPrefix) {
+        localStorage.removeItem(`formState:${keyPrefix}`);
+    }
+
+    // Pasang listeners untuk simpan otomatis on input
+    window.addEventListener('DOMContentLoaded', () => {
+        forms.forEach(({ id, key }) => {
+            const formEl = document.getElementById(id);
+            if (!formEl) return;
+
+            // Restore saat load
+            restoreFormFromStorage(formEl, key);
+
+            // Simpan perubahan setiap input berubah
+            formEl.addEventListener('input', () => saveFormToStorage(formEl, key));
+            formEl.addEventListener('change', () => saveFormToStorage(formEl, key));
+
+            // Bersihkan storage saat submit sukses (handleCreateReport/handleEditReport akan memanggil clear juga)
+            formEl.addEventListener('submit', () => clearFormStorage(key));
+        });
+    });
+
+    // Ekspor helper agar bisa dipanggil setelah submit sukses atau reset
+    window.__formPersistence = {
+        save: saveFormToStorage,
+        restore: restoreFormFromStorage,
+        clear: clearFormStorage
+    };
+})();
 
 function showReportDetailModal(report) {
     const modal = document.getElementById('reportDetailModal');
@@ -927,8 +1010,16 @@ function populateEditForm(report) {
         const element = document.getElementById(id);
         if (element != null) {
             element.value = elements[id];
+            // Tandai agar form persistence boleh overwrite jika restore diperlukan
+            element.dataset.allowRestore = 'force';
         }
     });
+
+    // Setelah populate, restore data lokal jika ada (misal user sudah sempat isi sebelum reload)
+    const editForm = document.getElementById('editReportForm');
+    if (editForm && window.__formPersistence) {
+        window.__formPersistence.restore(editForm, 'editReport');
+    }
 
     const currentFotoDokumentasi = document.getElementById('currentFotoDokumentasi');
     if (currentFotoDokumentasi) {

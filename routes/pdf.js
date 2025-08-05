@@ -94,7 +94,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 <title>Laporan Kegiatan Pengawasan</title>
                 <style>
                     body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-                    .header { text-align: center; margin-bottom: 30px; }
+                    .header { text-align: center; margin-bottom: 20px; }
                     .header h1 { margin: 0; font-size: 18px; font-weight: bold; }
                     .header h2 { margin: 5px 0; font-size: 16px; }
                     .content { margin: 20px 0; }
@@ -110,21 +110,34 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                         font-weight: bold;
                         white-space: nowrap;
                         align-self: start; /* sejajarkan ke atas baris */
-                        padding-top: 2px;  /* sedikit offset visual agar optik sejajar dengan teks nilai */
+                        padding-top: 0;  /* nolkan agar benar2 sejajar baseline atas */
+                        line-height: 1.5;
                     }
                     .info-value {
-                        /* Nilai tetap mulai pada kolom kedua, baris yang sama dengan label */
+                        /* Pastikan nilai sejajar atas dan konsisten untuk konten multi-baris */
                         display: block;
-                        line-height: 1.4;
+                        line-height: 1.5;
                         word-break: break-word;
+                        white-space: pre-wrap; /* jaga line break manual */
                         margin: 0; /* hilangkan margin default yang mungkin menggeser vertikal */
+                        text-align: left; /* cegah rata kanan yang bikin terlihat turun */
+                    }
+                    /* Pastikan kolom nilai tanggal tidak terdorong oleh gaya lain (misal pewarisan align/spacing) */
+                    .info-value.tanggal {
+                        margin: 0 !important;
+                        padding-top: 0 !important;
+                        text-align: left !important;
+                    }
+                    .info-value.permasalahan {
+                        margin: 0 !important;
+                        padding-top: 0 !important;
                     }
                     .signature { margin-top: 50px; text-align: right; }
                     /* Spacing helpers */
                     /* Gunakan jarak antar baris yang konsisten seperti antar "Nomor Surat Tugas" -> "Kegiatan" */
                     .row-gap { height: 8px; }        /* jarak kecil standar antar pasangan label-nilai */
                     .pegawai-to-title-spacer { height: 8px; } /* set sama seperti row-gap agar konsisten */
-                    .block-gap-50 { height: 50px; }  /* jarak khusus 50px (tanggal -> aktivitas) */
+                    .block-gap-30 { height: 30px; }  /* jarak khusus 50px (tanggal -> aktivitas) */
                     .signature-box { display: inline-block; text-align: center; }
                     .page-break { page-break-before: always; }
                     .documentation-page { margin-top: 40px; }
@@ -173,37 +186,26 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 </style>
             </head>
             <body>
-                <div class="header">
-                    <h1>LAPORAN PERJALANAN DINAS</h1>
-                </div>
-                
+                <div class="header"><h1>LAPORAN PERJALANAN DINAS</h1></div>
+                <div></div><div class="block-gap-30"></div>
                 <div class="content">
                     <div class="info-grid">
                         <div class="info-label">Nama Pegawai</div>
-                        <div class="info-value">
-                            ${report.pegawai_name}
-                        </div>
-                        <!-- Spacer kecil konsisten antar baris, sama seperti jarak Nomor Surat Tugas -> Kegiatan -->
-                        <div></div><div class="pegawai-to-title-spacer"></div>
-
+                        <div class="info-value">${report.pegawai_name}</div>
                         <div class="info-label">Nomor Surat Tugas</div>
                         <div class="info-value">${report.nomor_surat_tugas || '-'}</div>
-
                         <div class="info-label">Tujuan Perjalanan Dinas</div>
                         <div class="info-value">${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</div>
-
                         <div class="info-label">Tanggal/Hari Pelaksanaan</div>
-                        <div class="info-value">
-                            ${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                        </div>
-                        <!-- Spacer 50px antar baris setelah pasangan label-nilai (tanggal -> aktivitas) -->
-                        <div></div><div class="block-gap-50"></div>
+                        <div class="info-value">${new Date(report.tanggal_pelaksanaan).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                        <div></div><div class="block-gap-30"></div>
+
 
                         <div class="info-label">Aktivitas yang Dilakukan</div>
                         <div class="info-value">${report.aktivitas}</div>
 
                         <div class="info-label">Permasalahan yang ditemui</div>
-                        <div class="info-value" style="margin-top:12px;">${report.permasalahan || 'Tidak ada permasalahan'}</div>
+                        <div class="info-value permasalahan">${(report.permasalahan || 'Tidak ada permasalahan').toString().trim()}</div>
 
                         <div class="info-label">Petugas/Responden Ditemui</div>
                         <div class="info-value">${report.petugas_responden || '-'}</div>
