@@ -16,17 +16,19 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
 
         if (req.user.role === 'kepala') {
             query = `
-                SELECT r.*, u.name as pegawai_name 
+                SELECT r.*, u.name as pegawai_name, ac.description as description_name  
                 FROM reports r 
-                JOIN users u ON r.user_id = u.id 
+                JOIN users u ON r.user_id = u.id
+                JOIN activity_types ac ON r.activity_type_id = ac.id  
                 WHERE r.id = ?
             `;
             params = [id];
         } else {
             query = `
-                SELECT r.*, u.name as pegawai_name 
+                SELECT r.*, u.name as pegawai_name, ac.description as description_name  
                 FROM reports r 
-                JOIN users u ON r.user_id = u.id 
+                JOIN users u ON r.user_id = u.id
+                JOIN activity_types ac ON r.activity_type_id = ac.id  
                 WHERE r.id = ? AND r.user_id = ?
             `;
             params = [id, req.user.id];
@@ -187,9 +189,11 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             </head>
             <body>
                 <div class="header"><h1>LAPORAN PERJALANAN DINAS</h1></div>
-                <div></div><div class="block-gap-30"></div>
+                <div class="block-gap-30"></div>
                 <div class="content">
                     <div class="info-grid">
+                        <div class="info-label">Deskripsi Kegiatan</div>
+                        <div class="info-value">${report.description_name}</div>
                         <div class="info-label">Nama Pegawai</div>
                         <div class="info-value">${report.pegawai_name}</div>
                         <div class="info-label">Nomor Surat Tugas</div>
