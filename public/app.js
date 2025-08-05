@@ -716,6 +716,13 @@ async function handleEditReport(e) {
     
     const formData = new FormData(e.target);
     const reportId = formData.get('reportId');
+
+    // Pastikan tujuan_perjalanan_dinas dikirim (kompatibel dengan form input yang sudah diganti)
+    // Jika browser masih mengirim "kegiatan_pengawasan" dari cache lama, salin ke tujuan_perjalanan_dinas.
+    if (!formData.get('tujuan_perjalanan_dinas') && formData.get('kegiatan_pengawasan')) {
+        formData.set('tujuan_perjalanan_dinas', formData.get('kegiatan_pengawasan'));
+    }
+
     // Normalize optional fields
     if (!formData.get('nomor_surat_tugas')) {
         formData.set('nomor_surat_tugas', '');
@@ -897,33 +904,37 @@ async function editReport(reportId) {
 }
 
 function populateEditForm(report) {
+    // Normalisasi nilai agar tidak muncul "undefined" di input
+    const tujuanPerjalanan = (report.tujuan_perjalanan_dinas != null && report.tujuan_perjalanan_dinas !== '')
+        ? report.tujuan_perjalanan_dinas
+        : (report.kegiatan_pengawasan || '');
+
     const elements = {
-        'editReportId': report.id,
-        'editActivityType': report.activity_type_id,
+        'editReportId': report.id ?? '',
+        'editActivityType': report.activity_type_id ?? '',
         'editNomorSuratTugas': report.nomor_surat_tugas || '',
-        'editKegiatanPengawasan': report.kegiatan_pengawasan,
-        'editTanggalPelaksanaan': report.tanggal_pelaksanaan,
-        'editHariPelaksanaan': report.hari_pelaksanaan,
-        'editAktivitas': report.aktivitas,
+        // Ganti ke field tujuan_perjalanan_dinas (fallback ke kegiatan_pengawasan bila legacy)
+        'editKegiatanPengawasan': tujuanPerjalanan,
+        'editTanggalPelaksanaan': report.tanggal_pelaksanaan || '',
+        'editHariPelaksanaan': report.hari_pelaksanaan || '',
+        'editAktivitas': report.aktivitas || '',
         'editPermasalahan': report.permasalahan || '',
         'editPetugasResponden': report.petugas_responden || '',
         'editSolusiAntisipasi': report.solusi_antisipasi || ''
     };
-    
+
     Object.keys(elements).forEach(id => {
         const element = document.getElementById(id);
-        if (element) {
+        if (element != null) {
             element.value = elements[id];
         }
     });
-    
+
     const currentFotoDokumentasi = document.getElementById('currentFotoDokumentasi');
-    
     if (currentFotoDokumentasi) {
-        // This part can be enhanced to show a list of current photos
-        currentFotoDokumentasi.innerHTML = report.foto_dokumentasi && report.foto_dokumentasi.length > 0 ?
-            `Ada ${report.foto_dokumentasi.length} foto telah diunggah.` :
-            'Tidak ada foto dokumentasi.';
+        currentFotoDokumentasi.innerHTML = report.foto_dokumentasi && report.foto_dokumentasi.length > 0
+            ? `Ada ${report.foto_dokumentasi.length} foto telah diunggah.`
+            : 'Tidak ada foto dokumentasi.';
     }
 }
 
