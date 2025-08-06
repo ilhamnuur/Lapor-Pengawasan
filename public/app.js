@@ -560,6 +560,9 @@ function updateReportsTable() {
                     <button data-action="edit" data-id="${report.id}" class="text-yellow-600 hover:text-yellow-900">
                         Edit
                     </button>
+                    <button data-action="copy" data-id="${report.id}" class="text-green-600 hover:text-green-900">
+                        Copy
+                    </button>
                     <button data-action="delete" data-id="${Number(report.id)}" class="text-red-600 hover:text-red-900">
                         Hapus
                     </button>
@@ -1678,6 +1681,9 @@ function handleReportAction(e) {
         case 'edit':
             editReport(id);
             break;
+        case 'copy':
+            copyReport(id);
+            break;
         case 'delete':
             deleteReport(id);
             break;
@@ -1690,3 +1696,69 @@ window.deleteUser = deleteUser;
 window.editActivityType = editActivityType;
 window.deleteActivityType = deleteActivityType;
 window.confirmDelete = confirmDelete;
+
+// Copy report: duplicate an existing report to a new one and open edit form
+async function copyReport(reportId) {
+   try {
+       showLoading();
+       // Fetch original report detail to prefill
+       const detailResp = await fetch(`${API_BASE}/reports/${reportId}`, {
+           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+       });
+       if (!detailResp.ok) {
+           const j = await detailResp.json().catch(()=>({}));
+           throw new Error(j.message || 'Gagal mengambil detail laporan untuk disalin');
+       }
+       const report = await detailResp.json();
+
+       // Prepare a new FormData for create endpoint
+       const fd = new FormData();
+       if (report.activity_type_id) fd.append('activity_type_id', report.activity_type_id);
+       fd.append('nomor_surat_tugas', report.nomor_surat_tugas || '');
+       fd.append('tujuan_perjalanan_dinas', report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '');
+       fd.append('tanggal_pelaksanaan', report.tanggal_pelaksanaan || '');
+       fd.append('aktivitas', report.aktivitas || '');
+       fd.append('permasalahan', report.permasalahan || '');
+       fd.append('petugas_responden', report.petugas_responden || '');
+       fd.append('solusi_antisipasi', report.solusi_antisipasi || '');
+       // Do NOT include existing photos automatically (user can upload new ones)
+
+       // Create the duplicated report
+       const createResp = await fetch(`${API_BASE}/reports`, {
+           method: 'POST',
+           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+           body: fd
+       });
+       const createData = await createResp.json().catch(()=>({}));
+       if (!createResp.ok) {
+           throw new Error(createData.message || 'Gagal menyalin laporan');
+       }
+
+       // Open the new report in edit mode to allow user adjustments
+       const newId = createData?.report?.id;
+       if (newId) {
+           const respGet = await fetch(`${API_BASE}/reports/${newId}`, {
+               headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+           });
+           if (respGet.ok) {
+               const newReport = await respGet.json();
+               await loadActivityTypes();
+               populateEditForm(newReport);
+               switchView('edit-report');
+               showMessage('Laporan berhasil disalin. Silakan perbarui data jika diperlukan.', 'success');
+           } else {
+               // fallback: just reload list
+               await loadReports();
+               showMessage('Laporan berhasil disalin', 'success');
+           }
+       } else {
+           await loadReports();
+           showMessage('Laporan berhasil disalin', 'success');
+       }
+   } catch (err) {
+       console.error('Error copying report:', err);
+       showMessage(err?.message || 'Terjadi kesalahan saat menyalin laporan', 'error');
+   } finally {
+       hideLoading();
+   }
+}
