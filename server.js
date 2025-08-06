@@ -3,6 +3,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
+// Hard-disable SQLite auto-init to avoid dual-writes (kept file for reference only)
+// If any module still requires ../config/database-sqlite by mistake, it should be removed in code.
 
 const authRoutes = require('./routes/auth');
 const reportRoutes = require('./routes/reports');
@@ -10,6 +12,13 @@ const pdfRoutes = require('./routes/pdf');
 const userRoutes = require('./routes/users');
 const excelRoutes = require('./routes/excel');
 const activityTypeRoutes = require('./routes/activityTypes');
+// Ensure .env is loaded and Postgres is reachable early
+try {
+  const pg = require('./config/database');
+  pg.query('SELECT 1').catch(err => console.error('[Startup] PostgreSQL ping failed:', err?.message || err));
+} catch (e) {
+  console.error('[Startup] Failed to initialize PostgreSQL client:', e?.message || e);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;

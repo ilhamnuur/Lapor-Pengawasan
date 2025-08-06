@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
 const ExcelJS = require('exceljs');
@@ -11,10 +11,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Get all users (Kepala only)
 router.get('/', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
     try {
-        const users = await db.all('SELECT id, username, name, role, created_at FROM users ORDER BY created_at DESC');
-        res.json(users);
+        const { rows } = await pg.query('SELECT id, username, name, role, created_at FROM users ORDER BY created_at DESC');
+        res.json(rows);
     } catch (error) {
-        console.error(error);
+        console.error('[USERS] list error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -24,38 +24,30 @@ router.post('/', authenticateToken, authorizeRole(['kepala']), async (req, res) 
     try {
         const { username, password, name, role } = req.body;
 
-        // Validate input
         if (!username || !password || !name || !role) {
             return res.status(400).json({ message: 'Semua field harus diisi' });
         }
-
         if (!['pegawai', 'kepala'].includes(role)) {
             return res.status(400).json({ message: 'Role tidak valid' });
         }
 
-        // Check if username already exists
-        const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
-        if (existingUser) {
+        const { rows: exist } = await pg.query('SELECT 1 FROM users WHERE username = $1', [username]);
+        if (exist.length) {
             return res.status(400).json({ message: 'Username sudah digunakan' });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert new user
-        const result = await db.run(
-            'INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
+        const { rows } = await pg.query(
+            'INSERT INTO users (username, password, name, role) VALUES ($1,$2,$3,$4) RETURNING id, username, name, role, created_at',
             [username, hashedPassword, name, role]
         );
 
-        const newUser = await db.get('SELECT id, username, name, role, created_at FROM users WHERE id = ?', [result.id]);
-
         res.status(201).json({
             message: 'User berhasil ditambahkan',
-            user: newUser
+            user: rows[0]
         });
     } catch (error) {
-        console.error(error);
+        console.error('[USERS] create error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -66,48 +58,44 @@ router.put('/:id', authenticateToken, authorizeRole(['kepala']), async (req, res
         const { id } = req.params;
         const { username, password, name, role } = req.body;
 
-        // Validate input
         if (!username || !name || !role) {
             return res.status(400).json({ message: 'Username, nama, dan role harus diisi' });
         }
-
         if (!['pegawai', 'kepala'].includes(role)) {
             return res.status(400).json({ message: 'Role tidak valid' });
         }
 
-        // Check if user exists
-        const existingUser = await db.get('SELECT * FROM users WHERE id = ?', [id]);
-        if (!existingUser) {
+        const { rows: exists } = await pg.query('SELECT id FROM users WHERE id = $1', [id]);
+        if (!exists.length) {
             return res.status(404).json({ message: 'User tidak ditemukan' });
         }
 
-        // Check if username is taken by another user
-        const duplicateUser = await db.get('SELECT * FROM users WHERE username = ? AND id != ?', [username, id]);
-        if (duplicateUser) {
+        const { rows: dup } = await pg.query('SELECT 1 FROM users WHERE username = $1 AND id != $2', [username, id]);
+        if (dup.length) {
             return res.status(400).json({ message: 'Username sudah digunakan' });
         }
 
-        // Prepare update query
-        let updateQuery = 'UPDATE users SET username = ?, name = ?, role = ? WHERE id = ?';
-        let params = [username, name, role, id];
-
-        // If password is provided, hash it and include in update
         if (password && password.trim() !== '') {
             const hashedPassword = await bcrypt.hash(password, 10);
-            updateQuery = 'UPDATE users SET username = ?, password = ?, name = ?, role = ? WHERE id = ?';
-            params = [username, hashedPassword, name, role, id];
+            await pg.query(
+                'UPDATE users SET username = $1, password = $2, name = $3, role = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5',
+                [username, hashedPassword, name, role, id]
+            );
+        } else {
+            await pg.query(
+                'UPDATE users SET username = $1, name = $2, role = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+                [username, name, role, id]
+            );
         }
 
-        await db.run(updateQuery, params);
-
-        const updatedUser = await db.get('SELECT id, username, name, role, created_at FROM users WHERE id = ?', [id]);
+        const { rows } = await pg.query('SELECT id, username, name, role, created_at FROM users WHERE id = $1', [id]);
 
         res.json({
             message: 'User berhasil diupdate',
-            user: updatedUser
+            user: rows[0]
         });
     } catch (error) {
-        console.error(error);
+        console.error('[USERS] update error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -117,28 +105,25 @@ router.delete('/:id', authenticateToken, authorizeRole(['kepala']), async (req, 
     try {
         const { id } = req.params;
 
-        // Check if user exists
-        const existingUser = await db.get('SELECT * FROM users WHERE id = ?', [id]);
-        if (!existingUser) {
+        const { rows: exists } = await pg.query('SELECT id FROM users WHERE id = $1', [id]);
+        if (!exists.length) {
             return res.status(404).json({ message: 'User tidak ditemukan' });
         }
 
-        // Prevent deleting self
-        if (parseInt(id) === req.user.id) {
+        if (parseInt(id, 10) === req.user.id) {
             return res.status(400).json({ message: 'Tidak dapat menghapus akun sendiri' });
         }
 
-        // Check if user has reports
-        const userReports = await db.get('SELECT COUNT(*) as count FROM reports WHERE user_id = ?', [id]);
-        if (userReports.count > 0) {
+        const { rows: cnt } = await pg.query('SELECT COUNT(*)::int as count FROM reports WHERE user_id = $1', [id]);
+        if (cnt[0].count > 0) {
             return res.status(400).json({ message: 'Tidak dapat menghapus user yang memiliki laporan. Hapus laporan terlebih dahulu.' });
         }
 
-        await db.run('DELETE FROM users WHERE id = ?', [id]);
+        await pg.query('DELETE FROM users WHERE id = $1', [id]);
 
         res.json({ message: 'User berhasil dihapus' });
     } catch (error) {
-        console.error(error);
+        console.error('[USERS] delete error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -157,8 +142,6 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
             return res.status(400).json({ message: 'Invalid Excel file' });
         }
 
-        // Expect header: username | password | name | role
-        // Find header row (assume row 1)
         const headerMap = {};
         const headerRow = sheet.getRow(1);
         headerRow.eachCell((cell, col) => {
@@ -179,7 +162,6 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
 
         for (let r = 2; r <= sheet.rowCount; r++) {
             const row = sheet.getRow(r);
-            // Skip empty rows
             if (row.actualCellCount === 0) continue;
 
             const username = (row.getCell(headerMap['username']).value || '').toString().trim();
@@ -198,15 +180,15 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
                     errors.push(`Row ${r}: Invalid role "${role}"`);
                     continue;
                 }
-                const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
-                if (existingUser) {
+                const { rows: exist } = await pg.query('SELECT 1 FROM users WHERE username = $1', [username]);
+                if (exist.length) {
                     errorCount++;
                     errors.push(`Row ${r}: Username already exists "${username}"`);
                     continue;
                 }
                 const hashedPassword = await bcrypt.hash(password, 10);
-                await db.run(
-                    'INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)',
+                await pg.query(
+                    'INSERT INTO users (username, password, name, role) VALUES ($1,$2,$3,$4)',
                     [username, hashedPassword, name, role]
                 );
                 createdCount++;
@@ -221,7 +203,7 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
             errors
         });
     } catch (err) {
-        console.error('Error processing Excel upload:', err);
+        console.error('[USERS] upload error:', err);
         return res.status(500).json({ message: 'Server error while processing Excel' });
     }
 });
@@ -232,17 +214,14 @@ router.get('/template', authenticateToken, authorizeRole(['kepala']), async (req
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('Template Users');
 
-        // Header
         const headers = ['username', 'password', 'name', 'role'];
         sheet.addRow(headers);
         const headerRow = sheet.getRow(1);
         headerRow.font = { bold: true };
         headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
-        // Example row
         sheet.addRow(['userbaru1', 'Passw0rd!', 'User Baru 1', 'pegawai']);
 
-        // Column widths
         sheet.columns = [
             { width: 20 },
             { width: 18 },
@@ -250,7 +229,6 @@ router.get('/template', authenticateToken, authorizeRole(['kepala']), async (req
             { width: 12 },
         ];
 
-        // Notes
         sheet.addRow([]);
         sheet.addRow(['Keterangan: Kolom role hanya boleh bernilai "pegawai" atau "kepala"']);
         sheet.mergeCells('A3:D3');
@@ -262,7 +240,7 @@ router.get('/template', authenticateToken, authorizeRole(['kepala']), async (req
         await workbook.xlsx.write(res);
         res.end();
     } catch (error) {
-        console.error('Error generating users template:', error);
+        console.error('[USERS] template error:', error);
         res.status(500).json({ message: 'Gagal membuat template' });
     }
 });

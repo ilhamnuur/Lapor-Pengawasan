@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
 const multer = require('multer');
@@ -10,10 +10,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Get all activity types
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const activityTypes = await db.all('SELECT * FROM activity_types ORDER BY name');
-        res.json(activityTypes);
+        const { rows } = await pg.query('SELECT * FROM activity_types ORDER BY name');
+        res.json(rows);
     } catch (error) {
-        console.error(error);
+        console.error('[ACTIVITY_TYPES] list error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -27,25 +27,22 @@ router.post('/', authenticateToken, authorizeRole(['kepala']), async (req, res) 
             return res.status(400).json({ message: 'Nama jenis kegiatan wajib diisi' });
         }
 
-        // Check if activity type already exists (case-insensitive)
-        const existing = await db.get('SELECT * FROM activity_types WHERE LOWER(name) = LOWER(?)', [name.trim()]);
-        if (existing) {
+        const { rows: exist } = await pg.query('SELECT 1 FROM activity_types WHERE LOWER(name) = LOWER($1)', [name.trim()]);
+        if (exist.length) {
             return res.status(400).json({ message: 'Jenis kegiatan sudah ada' });
         }
 
-        const result = await db.run(
-            'INSERT INTO activity_types (name, description) VALUES (?, ?)',
+        const { rows } = await pg.query(
+            'INSERT INTO activity_types (name, description) VALUES ($1,$2) RETURNING *',
             [name.trim(), description || null]
         );
 
-        const newActivityType = await db.get('SELECT * FROM activity_types WHERE id = ?', [result.id]);
-
         res.status(201).json({
             message: 'Jenis kegiatan berhasil ditambahkan',
-            activityType: newActivityType
+            activityType: rows[0]
         });
     } catch (error) {
-        console.error('Create activity type error:', error);
+        console.error('[ACTIVITY_TYPES] create error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -60,31 +57,29 @@ router.put('/:id', authenticateToken, authorizeRole(['kepala']), async (req, res
             return res.status(400).json({ message: 'Nama jenis kegiatan wajib diisi' });
         }
 
-        // Check if activity type exists
-        const existing = await db.get('SELECT * FROM activity_types WHERE id = ?', [id]);
-        if (!existing) {
+        const { rows: exist } = await pg.query('SELECT id FROM activity_types WHERE id = $1', [id]);
+        if (!exist.length) {
             return res.status(404).json({ message: 'Jenis kegiatan tidak ditemukan' });
         }
 
-        // Check duplicate by name on other rows (case-insensitive)
-        const duplicate = await db.get('SELECT * FROM activity_types WHERE LOWER(name) = LOWER(?) AND id != ?', [name.trim(), id]);
-        if (duplicate) {
+        const { rows: dup } = await pg.query(
+            'SELECT 1 FROM activity_types WHERE LOWER(name) = LOWER($1) AND id != $2',
+            [name.trim(), id]
+        );
+        if (dup.length) {
             return res.status(400).json({ message: 'Jenis kegiatan sudah ada' });
         }
 
-        await db.run(
-            'UPDATE activity_types SET name = ?, description = ? WHERE id = ?',
-            [name.trim(), description || null, id]
-        );
+        await pg.query('UPDATE activity_types SET name = $1, description = $2 WHERE id = $3', [name.trim(), description || null, id]);
 
-        const updatedActivityType = await db.get('SELECT * FROM activity_types WHERE id = ?', [id]);
+        const { rows } = await pg.query('SELECT * FROM activity_types WHERE id = $1', [id]);
 
         res.json({
             message: 'Jenis kegiatan berhasil diupdate',
-            activityType: updatedActivityType
+            activityType: rows[0]
         });
     } catch (error) {
-        console.error('Update activity type error:', error);
+        console.error('[ACTIVITY_TYPES] update error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -94,23 +89,21 @@ router.delete('/:id', authenticateToken, authorizeRole(['kepala']), async (req, 
     try {
         const { id } = req.params;
 
-        // Check if activity type exists
-        const existing = await db.get('SELECT * FROM activity_types WHERE id = ?', [id]);
-        if (!existing) {
+        const { rows: exist } = await pg.query('SELECT id FROM activity_types WHERE id = $1', [id]);
+        if (!exist.length) {
             return res.status(404).json({ message: 'Jenis kegiatan tidak ditemukan' });
         }
 
-        // Check if there are reports using this activity type
-        const reports = await db.get('SELECT COUNT(*) as count FROM reports WHERE activity_type_id = ?', [id]);
-        if (reports.count > 0) {
-            return res.status(400).json({ message: `Tidak dapat menghapus. Jenis kegiatan sedang dipakai oleh ${reports.count} laporan.` });
+        const { rows: cnt } = await pg.query('SELECT COUNT(*)::int AS count FROM reports WHERE activity_type_id = $1', [id]);
+        if (cnt[0].count > 0) {
+            return res.status(400).json({ message: `Tidak dapat menghapus. Jenis kegiatan sedang dipakai oleh ${cnt[0].count} laporan.` });
         }
 
-        await db.run('DELETE FROM activity_types WHERE id = ?', [id]);
+        await pg.query('DELETE FROM activity_types WHERE id = $1', [id]);
 
         res.json({ message: 'Jenis kegiatan berhasil dihapus' });
     } catch (error) {
-        console.error('Delete activity type error:', error);
+        console.error('[ACTIVITY_TYPES] delete error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -121,17 +114,14 @@ router.get('/template', authenticateToken, authorizeRole(['kepala']), async (req
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('Template Jenis Kegiatan');
 
-        // Header
         const headers = ['name', 'description'];
         sheet.addRow(headers);
         const headerRow = sheet.getRow(1);
         headerRow.font = { bold: true };
         headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
-        // Example row
         sheet.addRow(['Pengumpulan Data Rutin', 'Kegiatan pengumpulan data bulanan']);
 
-        // Column widths
         sheet.columns = [
             { width: 35 },
             { width: 50 }
@@ -143,7 +133,7 @@ router.get('/template', authenticateToken, authorizeRole(['kepala']), async (req
         await workbook.xlsx.write(res);
         res.end();
     } catch (error) {
-        console.error('Error generating activity types template:', error);
+        console.error('[ACTIVITY_TYPES] template error:', error);
         res.status(500).json({ message: 'Gagal membuat template' });
     }
 });
@@ -158,7 +148,6 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
         const sheet = workbook.worksheets[0];
         if (!sheet) return res.status(400).json({ message: 'Sheet tidak ditemukan' });
 
-        // Expect headers in first row: name, description
         const headerRow = sheet.getRow(1);
         const colName = (headerRow.getCell(1).value || '').toString().toLowerCase();
         const colDesc = (headerRow.getCell(2).value || '').toString().toLowerCase();
@@ -180,13 +169,12 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
                 continue;
             }
 
-            // Upsert: if name exists (case-insensitive), update description; else create new
-            const existing = await db.get('SELECT id FROM activity_types WHERE LOWER(name) = LOWER(?)', [name]);
-            if (existing) {
-                await db.run('UPDATE activity_types SET description = ? WHERE id = ?', [description, existing.id]);
+            const { rows: existing } = await pg.query('SELECT id FROM activity_types WHERE LOWER(name) = LOWER($1)', [name]);
+            if (existing.length) {
+                await pg.query('UPDATE activity_types SET description = $1 WHERE id = $2', [description, existing[0].id]);
                 updated++;
             } else {
-                await db.run('INSERT INTO activity_types (name, description) VALUES (?, ?)', [name, description]);
+                await pg.query('INSERT INTO activity_types (name, description) VALUES ($1, $2)', [name, description]);
                 created++;
             }
         }
@@ -196,7 +184,7 @@ router.post('/upload', authenticateToken, authorizeRole(['kepala']), upload.sing
             errors
         });
     } catch (error) {
-        console.error('Upload activity types error:', error);
+        console.error('[ACTIVITY_TYPES] upload error:', error);
         res.status(500).json({ message: 'Server error saat upload jenis kegiatan' });
     }
 });

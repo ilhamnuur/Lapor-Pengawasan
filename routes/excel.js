@@ -1,25 +1,23 @@
 const express = require('express');
 const ExcelJS = require('exceljs');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
 
 // Export all reports to Excel (Kepala only)
 router.get('/reports', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
     try {
-        // Get all reports with user and activity type information
-        const reports = await db.all(`
-            SELECT 
+        const { rows: reports } = await pg.query(`
+            SELECT
                 r.*,
                 u.name as pegawai_name,
                 at.name as activity_type_name
-            FROM reports r 
-            JOIN users u ON r.user_id = u.id 
+            FROM reports r
+            JOIN users u ON r.user_id = u.id
             LEFT JOIN activity_types at ON r.activity_type_id = at.id
             ORDER BY r.created_at DESC
         `);
 
-        // Create a new workbook and worksheet
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Laporan Pengawasan');
 
@@ -168,15 +166,15 @@ router.get('/reports-by-date', authenticateToken, authorizeRole(['kepala']), asy
             return res.status(400).json({ message: 'Tanggal mulai dan tanggal akhir harus diisi' });
         }
 
-        const reports = await db.all(`
-            SELECT 
+        const { rows: reports } = await pg.query(`
+            SELECT
                 r.*,
                 u.name as pegawai_name,
                 at.name as activity_type_name
-            FROM reports r 
-            JOIN users u ON r.user_id = u.id 
+            FROM reports r
+            JOIN users u ON r.user_id = u.id
             LEFT JOIN activity_types at ON r.activity_type_id = at.id
-            WHERE r.tanggal_pelaksanaan BETWEEN ? AND ?
+            WHERE r.tanggal_pelaksanaan BETWEEN $1 AND $2
             ORDER BY r.tanggal_pelaksanaan DESC
         `, [startDate, endDate]);
 

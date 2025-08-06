@@ -2,7 +2,7 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
@@ -16,33 +16,33 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
 
         if (req.user.role === 'kepala') {
             query = `
-                SELECT r.*, u.name as pegawai_name, ac.description as description_name  
-                FROM reports r 
+                SELECT r.*, u.name as pegawai_name, ac.description as description_name
+                FROM reports r
                 JOIN users u ON r.user_id = u.id
-                JOIN activity_types ac ON r.activity_type_id = ac.id  
-                WHERE r.id = ?
+                JOIN activity_types ac ON r.activity_type_id = ac.id
+                WHERE r.id = $1
             `;
             params = [id];
         } else {
             query = `
-                SELECT r.*, u.name as pegawai_name, ac.description as description_name  
-                FROM reports r 
+                SELECT r.*, u.name as pegawai_name, ac.description as description_name
+                FROM reports r
                 JOIN users u ON r.user_id = u.id
-                JOIN activity_types ac ON r.activity_type_id = ac.id  
-                WHERE r.id = ? AND r.user_id = ?
+                JOIN activity_types ac ON r.activity_type_id = ac.id
+                WHERE r.id = $1 AND r.user_id = $2
             `;
             params = [id, req.user.id];
         }
 
-        const report = await db.get(query, params);
+        const { rows } = await pg.query(query, params);
+        const report = rows[0];
         
         if (!report) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
         }
         
-        // Get photos for the report
-        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
-        report.foto_dokumentasi = photos.map(photo => photo.photo_path);
+        const { rows: photosRows } = await pg.query('SELECT photo_path FROM report_photos WHERE report_id = $1', [id]);
+        report.foto_dokumentasi = photosRows.map(photo => photo.photo_path);
         
         // Generate photos HTML for second page
         let photosHTML = '';
@@ -269,7 +269,7 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
             return res.status(403).json({ message: 'Access denied' });
         }
 
-        const reports = await db.all(`
+        const { rows: reports } = await pg.query(`
             SELECT r.*, u.name as pegawai_name
             FROM reports r
             JOIN users u ON r.user_id = u.id

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -18,8 +18,9 @@ const authenticateToken = async (req, res, next) => {
 
         const decoded = jwt.verify(token, secretKey);
         
-        // Get user from database
-        const user = await db.get('SELECT id, username, name, role FROM users WHERE id = ?', [decoded.id]);
+        // Get user from PostgreSQL
+        const { rows } = await pg.query('SELECT id, username, name, role FROM users WHERE id = $1', [decoded.id]);
+        const user = rows[0];
         
         if (!user) {
             return res.status(401).json({ message: 'Invalid token' });

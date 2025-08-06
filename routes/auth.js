@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 const router = express.Router();
 
 // Login
@@ -9,10 +9,11 @@ router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        const user = await db.get(
-            'SELECT * FROM users WHERE username = ?',
+        const { rows } = await pg.query(
+            'SELECT * FROM users WHERE username = $1 LIMIT 1',
             [username]
         );
+        const user = rows[0];
 
         if (!user) {
             return res.status(401).json({ message: 'Username atau password salah' });
@@ -40,7 +41,7 @@ router.post('/login', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(error);
+        console.error('[AUTH] login error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

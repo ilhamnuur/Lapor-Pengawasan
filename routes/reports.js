@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const upload = require('../middleware/multer');
 const router = express.Router();
@@ -23,7 +23,6 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
             solusi_antisipasi
         } = req.body;
 
-        // Normalize empty strings to null for optional fields
         const normalizeEmpty = (v) => (v === '' || v === undefined) ? null : v;
         const tujuan = normalizeEmpty(tujuan_perjalanan_dinas);
         const aktivitasVal = normalizeEmpty(aktivitas);
@@ -33,13 +32,11 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
         const activityTypeIdVal = normalizeEmpty(activity_type_id);
         const nomorSuratVal = normalizeEmpty(nomor_surat_tugas);
 
-        // Validate required fields (match NOT NULL constraints in DB)
         const errors = [];
         if (!tujuan) errors.push('tujuan_perjalanan_dinas wajib diisi');
         if (!tanggal_pelaksanaan) errors.push('tanggal_pelaksanaan wajib diisi');
         if (!aktivitasVal) errors.push('aktivitas wajib diisi');
 
-        // Validate and compute hari_pelaksanaan
         const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
         let computedHari = null;
         let tanggalISO = null;
@@ -49,27 +46,20 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
                 errors.push('tanggal_pelaksanaan tidak valid');
             } else {
                 computedHari = dayNames[d.getDay()];
-                // format to YYYY-MM-DD for SQLite DATE compatibility
                 const pad = (n) => String(n).padStart(2, '0');
                 tanggalISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
             }
         }
-
-        if (!computedHari) {
-            errors.push('hari_pelaksanaan tidak dapat ditentukan dari tanggal_pelaksanaan');
-        }
-
-        if (errors.length) {
-            return res.status(400).json({ message: 'Validasi gagal', errors });
-        }
+        if (!computedHari) errors.push('hari_pelaksanaan tidak dapat ditentukan dari tanggal_pelaksanaan');
+        if (errors.length) return res.status(400).json({ message: 'Validasi gagal', errors });
 
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
 
-        // Perform INSERT
-        const result = await db.run(
+        const { rows: inserted } = await pg.query(
             `INSERT INTO reports (user_id, activity_type_id, nomor_surat_tugas, tujuan_perjalanan_dinas, tanggal_pelaksanaan,
              hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+             RETURNING *`,
             [
                 req.user.id,
                 activityTypeIdVal,
@@ -83,27 +73,23 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
                 solusiAntisipasiVal
             ]
         );
+        const newReport = inserted[0];
 
-        if (!result || !result.id) {
-            console.error('INSERT reports returned unexpected result:', result);
-            return res.status(500).json({ message: 'Gagal menyimpan laporan' });
-        }
-
-        const newReport = await db.get('SELECT * FROM reports WHERE id = ?', [result.id]);
-
-        // Insert photo dokumentasi paths
         if (req.files && req.files['foto_dokumentasi[]'] && req.files['foto_dokumentasi[]'].length) {
-            const photoInsertPromises = req.files['foto_dokumentasi[]'].map(photo => {
-                return db.run(
-                    `INSERT INTO report_photos (report_id, photo_path) VALUES (?, ?)`,
-                    [newReport.id, normalizePath(photo.path)]
-                );
-            });
-            await Promise.all(photoInsertPromises);
+            const values = [];
+            const params = [];
+            let idx = 1;
+            for (const photo of req.files['foto_dokumentasi[]']) {
+                values.push(`($${idx++}, $${idx++})`);
+                params.push(newReport.id, normalizePath(photo.path));
+            }
+            await pg.query(
+                `INSERT INTO report_photos (report_id, photo_path) VALUES ${values.join(',')}`,
+                params
+            );
         }
 
-        // Attach photos to response
-        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [newReport.id]);
+        const { rows: photos } = await pg.query('SELECT photo_path FROM report_photos WHERE report_id = $1', [newReport.id]);
         newReport.foto_dokumentasi = photos.map(p => p.photo_path);
 
         res.status(201).json({
@@ -111,13 +97,8 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
             report: newReport
         });
     } catch (error) {
-        // Provide more context to logs to diagnose persistence issues
         console.error('Error creating report:', {
-            body: {
-                ...req.body,
-                // avoid logging potentially large files
-                foto_dokumentasi_count: (req.files && req.files['foto_dokumentasi[]']) ? req.files['foto_dokumentasi[]'].length : 0
-            },
+            body: { ...req.body, foto_dokumentasi_count: (req.files && req.files['foto_dokumentasi[]']) ? req.files['foto_dokumentasi[]'].length : 0 },
             user: req.user?.id,
             error
         });
@@ -132,7 +113,6 @@ router.get('/', authenticateToken, async (req, res) => {
         let params;
 
         if (req.user.role === 'kepala') {
-            // Kepala can see all reports
             query = `
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
@@ -147,7 +127,6 @@ router.get('/', authenticateToken, async (req, res) => {
             `;
             params = [];
         } else {
-            // Pegawai can only see their own reports
             query = `
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
@@ -158,14 +137,14 @@ router.get('/', authenticateToken, async (req, res) => {
                     u.name as pegawai_name
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
-                WHERE r.user_id = ?
+                WHERE r.user_id = $1
                 ORDER BY r.created_at DESC
             `;
             params = [req.user.id];
         }
 
-        const result = await db.all(query, params);
-        res.json(result);
+        const { rows } = await pg.query(query, params);
+        res.json(rows);
     } catch (error) {
         console.error('Error fetching reports:', error);
         res.status(500).json({ message: 'Server error while fetching reports' });
@@ -183,7 +162,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
             query = `
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
-                    COALESCE(NULLIF(r.nomor_surat_tugas, ''), NULL) AS nomor_surat_tugas,
+                    NULLIF(r.nomor_surat_tugas, '') AS nomor_surat_tugas,
                     r.tujuan_perjalanan_dinas, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
@@ -192,14 +171,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
                 LEFT JOIN activity_types at ON r.activity_type_id = at.id
-                WHERE r.id = ?
+                WHERE r.id = $1
             `;
             params = [id];
         } else {
             query = `
                 SELECT
                     r.id, r.user_id, r.activity_type_id,
-                    COALESCE(NULLIF(r.nomor_surat_tugas, ''), NULL) AS nomor_surat_tugas,
+                    NULLIF(r.nomor_surat_tugas, '') AS nomor_surat_tugas,
                     r.tujuan_perjalanan_dinas, r.tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
@@ -208,19 +187,19 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
                 LEFT JOIN activity_types at ON r.activity_type_id = at.id
-                WHERE r.id = ? AND r.user_id = ?
+                WHERE r.id = $1 AND r.user_id = $2
             `;
             params = [id, req.user.id];
         }
 
-        const result = await db.get(query, params);
+        const { rows } = await pg.query(query, params);
+        const result = rows[0];
         
         if (!result) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
         }
 
-        // Get foto dokumentasi for this report
-        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+        const { rows: photos } = await pg.query('SELECT photo_path FROM report_photos WHERE report_id = $1', [id]);
         result.foto_dokumentasi = photos.map(photo => photo.photo_path);
 
         res.json(result);
@@ -248,15 +227,11 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
             solusi_antisipasi
         } = req.body;
 
-        // Check if report belongs to user
-        const existingReport = await db.get(
-            'SELECT * FROM reports WHERE id = ? AND user_id = ?',
-            [id, req.user.id]
-        );
-
-        if (!existingReport) {
+        const { rows: own } = await pg.query('SELECT * FROM reports WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+        if (!own.length) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
         }
+        const existingReport = own[0];
 
         const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
         let computedHari = existingReport.hari_pelaksanaan || null;
@@ -268,45 +243,43 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
         const deleteFile = (filePath) => {
             if (filePath && fs.existsSync(filePath)) {
-                try {
-                    fs.unlinkSync(filePath);
-                } catch (err) {
-                    console.error(`Failed to delete file: ${filePath}`, err);
-                }
+                try { fs.unlinkSync(filePath); } catch (err) { console.error(`Failed to delete file: ${filePath}`, err); }
             }
         };
 
-        await db.run(
+        await pg.query(
             `UPDATE reports SET
-             activity_type_id = ?, nomor_surat_tugas = ?, tujuan_perjalanan_dinas = ?, tanggal_pelaksanaan = ?, hari_pelaksanaan = ?,
-             aktivitas = ?, permasalahan = ?, petugas_responden = ?, solusi_antisipasi = ?,
+             activity_type_id = $1, nomor_surat_tugas = $2, tujuan_perjalanan_dinas = $3, tanggal_pelaksanaan = $4, hari_pelaksanaan = $5,
+             aktivitas = $6, permasalahan = $7, petugas_responden = $8, solusi_antisipasi = $9,
              updated_at = CURRENT_TIMESTAMP
-             WHERE id = ? AND user_id = ?`,
-            [activity_type_id, nomor_surat_tugas || null, tujuan_perjalanan_dinas, tanggal_pelaksanaan, computedHari, aktivitas,
-             permasalahan, petugas_responden, solusi_antisipasi, id, req.user.id]
+             WHERE id = $10 AND user_id = $11`,
+            [
+             activity_type_id || null, nomor_surat_tugas || null, tujuan_perjalanan_dinas, tanggal_pelaksanaan, computedHari,
+             aktivitas, permasalahan, petugas_responden, solusi_antisipasi, id, req.user.id
+            ]
         );
 
-        // Handle photo updates
         if (req.files['foto_dokumentasi[]']) {
-            // Delete old photos from filesystem and DB
-            const oldPhotos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+            const { rows: oldPhotos } = await pg.query('SELECT photo_path FROM report_photos WHERE report_id = $1', [id]);
             oldPhotos.forEach(photo => deleteFile(photo.photo_path));
-            await db.run('DELETE FROM report_photos WHERE report_id = ?', [id]);
+            await pg.query('DELETE FROM report_photos WHERE report_id = $1', [id]);
 
-            // Insert new photo paths
-            const photoInsertPromises = req.files['foto_dokumentasi[]'].map(photo => {
-                return db.run(
-                    `INSERT INTO report_photos (report_id, photo_path) VALUES (?, ?)`,
-                    [id, normalizePath(photo.path)]
-                );
-            });
-            await Promise.all(photoInsertPromises);
+            const values = [];
+            const params = [];
+            let idx = 1;
+            for (const photo of req.files['foto_dokumentasi[]']) {
+                values.push(`($${idx++}, $${idx++})`);
+                params.push(id, normalizePath(photo.path));
+            }
+            if (values.length) {
+                await pg.query(`INSERT INTO report_photos (report_id, photo_path) VALUES ${values.join(',')}`, params);
+            }
         }
 
-        const updatedReport = await db.get('SELECT * FROM reports WHERE id = ?', [id]);
+        const { rows: updatedRows } = await pg.query('SELECT * FROM reports WHERE id = $1', [id]);
+        const updatedReport = updatedRows[0];
 
-        // attach fresh photos list
-        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+        const { rows: photos } = await pg.query('SELECT photo_path FROM report_photos WHERE report_id = $1', [id]);
         updatedReport.foto_dokumentasi = photos.map(p => p.photo_path);
 
         res.json({
@@ -315,10 +288,7 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
         });
     } catch (error) {
         console.error(`Error updating report with id ${req.params.id}:`, {
-            body: {
-                ...req.body,
-                foto_dokumentasi_count: (req.files && req.files['foto_dokumentasi[]']) ? req.files['foto_dokumentasi[]'].length : 0
-            },
+            body: { ...req.body, foto_dokumentasi_count: (req.files && req.files['foto_dokumentasi[]']) ? req.files['foto_dokumentasi[]'].length : 0 },
             user: req.user?.id,
             error
         });
@@ -331,35 +301,29 @@ router.delete('/:id', authenticateToken, authorizeRole(['pegawai']), async (req,
     try {
         const { id } = req.params;
 
-        // Pastikan laporan milik user yang login
-        const report = await db.get('SELECT id FROM reports WHERE id = ? AND user_id = ?', [id, req.user.id]);
-        if (!report) {
+        const { rows: rep } = await pg.query('SELECT id FROM reports WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+        if (!rep.length) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
         }
 
-        // Ambil daftar foto (sebelum menghapus DB) agar kita punya path untuk hapus file
-        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+        const { rows: photos } = await pg.query('SELECT photo_path FROM report_photos WHERE report_id = $1', [id]);
 
-        // Hapus laporan terlebih dahulu (ON DELETE CASCADE akan menghapus report_photos)
-        const result = await db.run('DELETE FROM reports WHERE id = ? AND user_id = ?', [id, req.user.id]);
-        if (result.changes === 0) {
+        const { rowCount } = await pg.query('DELETE FROM reports WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+        if (rowCount === 0) {
             return res.status(404).json({ message: 'Laporan tidak ditemukan' });
         }
 
-        // Best-effort hapus file fisik setelah data terhapus
         for (const p of photos) {
             const storedPath = p.photo_path;
             if (!storedPath) continue;
             try {
-                // Jika path relatif "uploads/..." buat absolut berdasarkan struktur server
                 let candidatePaths = [];
                 if (path.isAbsolute(storedPath)) {
                     candidatePaths.push(storedPath);
                 } else {
-                    candidatePaths.push(path.join(__dirname, '..', storedPath));             // d:\Apps\Lapor-Pengawasan\uploads\...
-                    candidatePaths.push(path.join(process.cwd(), 'Lapor-Pengawasan', storedPath)); // fallback
+                    candidatePaths.push(path.join(__dirname, '..', storedPath));
+                    candidatePaths.push(path.join(process.cwd(), 'Lapor-Pengawasan', storedPath));
                 }
-                // Coba hapus file pada kandidat path
                 for (const cand of candidatePaths) {
                     if (fs.existsSync(cand)) {
                         try { fs.unlinkSync(cand); } catch (e) { console.error('unlink failed:', cand, e); }
@@ -372,7 +336,6 @@ router.delete('/:id', authenticateToken, authorizeRole(['pegawai']), async (req,
 
         return res.json({ message: 'Laporan berhasil dihapus' });
     } catch (error) {
-        // Tambahkan logging detail untuk diagnosa
         console.error('Delete report error -> id:', req.params.id, 'user:', req.user?.id, error);
         return res.status(500).json({ message: 'Server error while deleting report' });
     }
