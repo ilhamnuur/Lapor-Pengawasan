@@ -23,28 +23,76 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
             solusi_antisipasi
         } = req.body;
 
-        // Compute day from date to keep DB happy if column exists/required
+        // Normalize empty strings to null for optional fields
+        const normalizeEmpty = (v) => (v === '' || v === undefined) ? null : v;
+        const tujuan = normalizeEmpty(tujuan_perjalanan_dinas);
+        const aktivitasVal = normalizeEmpty(aktivitas);
+        const permasalahanVal = normalizeEmpty(permasalahan);
+        const petugasRespondenVal = normalizeEmpty(petugas_responden);
+        const solusiAntisipasiVal = normalizeEmpty(solusi_antisipasi);
+        const activityTypeIdVal = normalizeEmpty(activity_type_id);
+        const nomorSuratVal = normalizeEmpty(nomor_surat_tugas);
+
+        // Validate required fields (match NOT NULL constraints in DB)
+        const errors = [];
+        if (!tujuan) errors.push('tujuan_perjalanan_dinas wajib diisi');
+        if (!tanggal_pelaksanaan) errors.push('tanggal_pelaksanaan wajib diisi');
+        if (!aktivitasVal) errors.push('aktivitas wajib diisi');
+
+        // Validate and compute hari_pelaksanaan
         const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
         let computedHari = null;
+        let tanggalISO = null;
         if (tanggal_pelaksanaan) {
             const d = new Date(tanggal_pelaksanaan);
-            if (!isNaN(d)) computedHari = dayNames[d.getDay()];
+            if (isNaN(d)) {
+                errors.push('tanggal_pelaksanaan tidak valid');
+            } else {
+                computedHari = dayNames[d.getDay()];
+                // format to YYYY-MM-DD for SQLite DATE compatibility
+                const pad = (n) => String(n).padStart(2, '0');
+                tanggalISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            }
+        }
+
+        if (!computedHari) {
+            errors.push('hari_pelaksanaan tidak dapat ditentukan dari tanggal_pelaksanaan');
+        }
+
+        if (errors.length) {
+            return res.status(400).json({ message: 'Validasi gagal', errors });
         }
 
         const normalizePath = (p) => p ? p.replace(/\\/g, '/') : null;
 
+        // Perform INSERT
         const result = await db.run(
             `INSERT INTO reports (user_id, activity_type_id, nomor_surat_tugas, tujuan_perjalanan_dinas, tanggal_pelaksanaan,
              hari_pelaksanaan, aktivitas, permasalahan, petugas_responden, solusi_antisipasi)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, activity_type_id, nomor_surat_tugas || null, tujuan_perjalanan_dinas, tanggal_pelaksanaan, computedHari,
-             aktivitas, permasalahan, petugas_responden, solusi_antisipasi]
+            [
+                req.user.id,
+                activityTypeIdVal,
+                nomorSuratVal,
+                tujuan,
+                tanggalISO,
+                computedHari,
+                aktivitasVal,
+                permasalahanVal,
+                petugasRespondenVal,
+                solusiAntisipasiVal
+            ]
         );
+
+        if (!result || !result.id) {
+            console.error('INSERT reports returned unexpected result:', result);
+            return res.status(500).json({ message: 'Gagal menyimpan laporan' });
+        }
 
         const newReport = await db.get('SELECT * FROM reports WHERE id = ?', [result.id]);
 
         // Insert photo dokumentasi paths
-        if (req.files['foto_dokumentasi[]']) {
+        if (req.files && req.files['foto_dokumentasi[]'] && req.files['foto_dokumentasi[]'].length) {
             const photoInsertPromises = req.files['foto_dokumentasi[]'].map(photo => {
                 return db.run(
                     `INSERT INTO report_photos (report_id, photo_path) VALUES (?, ?)`,
@@ -54,12 +102,25 @@ router.post('/', authenticateToken, authorizeRole(['pegawai']), upload.fields([
             await Promise.all(photoInsertPromises);
         }
 
+        // Attach photos to response
+        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [newReport.id]);
+        newReport.foto_dokumentasi = photos.map(p => p.photo_path);
+
         res.status(201).json({
             message: 'Laporan berhasil dibuat',
             report: newReport
         });
     } catch (error) {
-        console.error('Error creating report:', error);
+        // Provide more context to logs to diagnose persistence issues
+        console.error('Error creating report:', {
+            body: {
+                ...req.body,
+                // avoid logging potentially large files
+                foto_dokumentasi_count: (req.files && req.files['foto_dokumentasi[]']) ? req.files['foto_dokumentasi[]'].length : 0
+            },
+            user: req.user?.id,
+            error
+        });
         res.status(500).json({ message: 'Server error while creating report' });
     }
 });
@@ -244,12 +305,23 @@ router.put('/:id', authenticateToken, authorizeRole(['pegawai']), upload.fields(
 
         const updatedReport = await db.get('SELECT * FROM reports WHERE id = ?', [id]);
 
+        // attach fresh photos list
+        const photos = await db.all('SELECT photo_path FROM report_photos WHERE report_id = ?', [id]);
+        updatedReport.foto_dokumentasi = photos.map(p => p.photo_path);
+
         res.json({
             message: 'Laporan berhasil diupdate',
             report: updatedReport
         });
     } catch (error) {
-        console.error(`Error updating report with id ${req.params.id}:`, error);
+        console.error(`Error updating report with id ${req.params.id}:`, {
+            body: {
+                ...req.body,
+                foto_dokumentasi_count: (req.files && req.files['foto_dokumentasi[]']) ? req.files['foto_dokumentasi[]'].length : 0
+            },
+            user: req.user?.id,
+            error
+        });
         res.status(500).json({ message: 'Server error while updating report' });
     }
 });
