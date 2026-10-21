@@ -196,9 +196,11 @@ router.get('/', authenticateToken, async (req, res) => {
                     r.tujuan_perjalanan_dinas, TO_CHAR(r.tanggal_pelaksanaan, 'YYYY-MM-DD') AS tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
-                    u.name as pegawai_name
+                    u.name as pegawai_name,
+                    at.name as activity_type_name
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
+                LEFT JOIN activity_types at ON r.activity_type_id = at.id
                 ORDER BY r.created_at DESC
             `;
             params = [];
@@ -210,9 +212,11 @@ router.get('/', authenticateToken, async (req, res) => {
                     r.tujuan_perjalanan_dinas, TO_CHAR(r.tanggal_pelaksanaan, 'YYYY-MM-DD') AS tanggal_pelaksanaan, r.hari_pelaksanaan,
                     r.aktivitas, r.permasalahan, r.petugas_responden, r.solusi_antisipasi,
                     r.created_at, r.updated_at,
-                    u.name as pegawai_name
+                    u.name as pegawai_name,
+                    at.name as activity_type_name
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
+                LEFT JOIN activity_types at ON r.activity_type_id = at.id
                 WHERE r.user_id = $1
                 ORDER BY r.created_at DESC
             `;

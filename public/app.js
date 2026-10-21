@@ -7,6 +7,8 @@ let activityTypes = [];
 let deleteItemId = null;
 let deleteItemType = null;
 let filteredReports = [];
+let reportPage = 1;
+const REPORTS_PER_PAGE = 10;
 
 // Calendar state
 let calendarMonth = startOfMonth(new Date());
@@ -235,6 +237,11 @@ function setupEventListeners() {
     if (filterByMonth) {
         filterByMonth.addEventListener('change', filterReports);
     }
+
+    const filterByActivityType = document.getElementById('filterByActivityType');
+    if (filterByActivityType) {
+        filterByActivityType.addEventListener('change', filterReports);
+    }
     
     // Auto-fill day when date is selected + validasi tanggal terpakai
     const tanggalPelaksanaan = document.getElementById('tanggalPelaksanaan');
@@ -403,10 +410,13 @@ function switchView(view) {
     if (view === 'overview') {
         loadOverviewData();
     } else if (view === 'reports') {
+        if (!activityTypes.length) loadActivityTypes();
         loadReports();
     } else if (view === 'create-report') {
         resetCreateForm();
-        loadActivityTypes();
+        // Jenis kegiatan biasanya sudah dimuat; hindari reload yang bisa menimpa
+        // pilihan hasil "Copy" pada form.
+        if (!activityTypes.length) loadActivityTypes();
     } else if (view === 'edit-report') {
        // Data is loaded when editReport is called
     } else if (view === 'users') {
@@ -480,8 +490,8 @@ async function loadReports() {
         
         if (response.ok) {
             reports = await response.json();
-            filteredReports = [...reports];
-            updateReportsTable();
+            reportPage = 1;
+            filterReports();
         } else {
             throw new Error('Failed to load reports');
         }
@@ -616,18 +626,26 @@ function updateReportsTable() {
     const tbody = document.getElementById('reportsTableBody');
     
     if (!tbody) return;
+
+    const totalReports = filteredReports.length;
+    const totalPages = Math.max(1, Math.ceil(totalReports / REPORTS_PER_PAGE));
+    if (reportPage > totalPages) reportPage = totalPages;
+    if (reportPage < 1) reportPage = 1;
+    const startIndex = (reportPage - 1) * REPORTS_PER_PAGE;
+    const pageReports = filteredReports.slice(startIndex, startIndex + REPORTS_PER_PAGE);
     
-    if (filteredReports.length === 0) {
+    if (totalReports === 0) {
         tbody.innerHTML = `
-            <tr><td colspan="5" class="empty-row">
+            <tr><td colspan="6" class="empty-row">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 <p>Belum ada laporan yang sesuai.</p>
             </td></tr>
         `;
+        renderReportsPagination();
         return;
     }
     
-    tbody.innerHTML = filteredReports.map(report => {
+    tbody.innerHTML = pageReports.map(report => {
         const pegawaiName = report.pegawai_name || '-';
         const initials = pegawaiName.split(/\s+/).filter(Boolean).slice(0, 2)
             .map(part => part.charAt(0).toUpperCase()).join('');
@@ -642,6 +660,9 @@ function updateReportsTable() {
                         <div class="cell-sub">Pegawai pengawasan</div>
                     </div>
                 </div>
+            </td>
+            <td data-label="Jenis Kegiatan">
+                <span class="badge badge-primary">${escapeHtml(report.activity_type_name || 'Lainnya')}</span>
             </td>
             <td data-label="Tujuan">
                 <div class="cell-main" style="white-space:normal;line-height:1.5;">${escapeHtml(tujuan)}</div>
@@ -668,6 +689,56 @@ function updateReportsTable() {
         </tr>
     `;
     }).join('');
+
+    renderReportsPagination();
+}
+
+function renderReportsPagination() {
+    const container = document.getElementById('reportsPagination');
+    if (!container) return;
+
+    const totalReports = filteredReports.length;
+    if (totalReports <= REPORTS_PER_PAGE) {
+        container.hidden = true;
+        container.innerHTML = '';
+        return;
+    }
+
+    const totalPages = Math.ceil(totalReports / REPORTS_PER_PAGE);
+    const startNumber = (reportPage - 1) * REPORTS_PER_PAGE + 1;
+    const endNumber = Math.min(reportPage * REPORTS_PER_PAGE, totalReports);
+
+    const maxButtons = 5;
+    let firstPage = Math.max(1, reportPage - 2);
+    let lastPage = Math.min(totalPages, firstPage + maxButtons - 1);
+    firstPage = Math.max(1, lastPage - maxButtons + 1);
+
+    const pageButtons = [];
+    for (let page = firstPage; page <= lastPage; page++) {
+        pageButtons.push(
+            `<button type="button" class="page-btn${page === reportPage ? ' is-active' : ''}" data-page="${page}"${page === reportPage ? ' aria-current="page"' : ''}>${page}</button>`
+        );
+    }
+
+    container.hidden = false;
+    container.innerHTML = `
+        <div class="pagination-info">Menampilkan ${startNumber}–${endNumber} dari ${totalReports} laporan</div>
+        <div class="pagination-pages">
+            <button type="button" class="page-btn" data-page="${reportPage - 1}"${reportPage === 1 ? ' disabled' : ''}>‹ Sebelumnya</button>
+            ${pageButtons.join('')}
+            <button type="button" class="page-btn" data-page="${reportPage + 1}"${reportPage === totalPages ? ' disabled' : ''}>Berikutnya ›</button>
+        </div>
+    `;
+
+    container.querySelectorAll('[data-page]').forEach(button => {
+        button.addEventListener('click', () => {
+            const page = parseInt(button.dataset.page, 10);
+            if (!Number.isInteger(page) || page < 1 || page > totalPages || page === reportPage) return;
+            reportPage = page;
+            updateReportsTable();
+            document.getElementById('reportsView')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
 }
 
 function updateUsersTable() {
@@ -754,6 +825,21 @@ function populateActivityTypeSelects() {
             });
         }
     });
+
+    // Filter daftar laporan berdasarkan jenis kegiatan.
+    const filterSelect = document.getElementById('filterByActivityType');
+    if (filterSelect) {
+        const currentValue = filterSelect.value;
+        filterSelect.innerHTML = '<option value="">Semua Jenis Kegiatan</option>';
+        activityTypes.forEach(activityType => {
+            const option = document.createElement('option');
+            option.value = activityType.id;
+            option.textContent = activityType.name;
+            filterSelect.appendChild(option);
+        });
+        filterSelect.value = currentValue;
+        if (filterSelect.value !== currentValue) filterSelect.value = '';
+    }
 }
 
 // Report functions
@@ -1007,12 +1093,12 @@ function showReportDetailModal(report) {
                     <p class="text-gray-900">${report.pegawai_name}</p>
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Kegiatan</label>
+                    <p class="text-gray-900">${escapeHtml(report.activity_type_name || 'Lainnya')}</p>
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Surat Tugas</label>
                     <p class="text-gray-900">${report.nomor_surat_tugas || '-'}</p>
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tujuan Perjalanan Dinas</label>
-                    <p class="text-gray-900">${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pelaksanaan</label>
@@ -1021,6 +1107,10 @@ function showReportDetailModal(report) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Hari Pelaksanaan</label>
                     <p class="text-gray-900">${report.hari_pelaksanaan}</p>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tujuan Perjalanan Dinas</label>
+                    <p class="text-gray-900">${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</p>
                 </div>
             </div>
             
@@ -1700,20 +1790,26 @@ async function exportToExcel() {
 function filterReports() {
     const searchTerm = document.getElementById('searchReports')?.value.toLowerCase() || '';
     const selectedMonth = document.getElementById('filterByMonth')?.value || '';
+    const selectedActivityType = document.getElementById('filterByActivityType')?.value || '';
     
     filteredReports = reports.filter(report => {
         const tujuan = (report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '').toLowerCase();
         const matchesSearch = tujuan.includes(searchTerm) ||
                               (report.pegawai_name || '').toLowerCase().includes(searchTerm) ||
-                              (report.aktivitas || '').toLowerCase().includes(searchTerm);
+                              (report.aktivitas || '').toLowerCase().includes(searchTerm) ||
+                              (report.activity_type_name || '').toLowerCase().includes(searchTerm);
         
         const reportMonth = toISODate(report.tanggal_pelaksanaan);
         const matchesMonth = !selectedMonth ||
                            (reportMonth && parseISODate(reportMonth).getMonth() + 1 === parseInt(selectedMonth));
+
+        const matchesActivityType = !selectedActivityType ||
+                           String(report.activity_type_id || '') === String(selectedActivityType);
         
-        return matchesSearch && matchesMonth;
+        return matchesSearch && matchesMonth && matchesActivityType;
     });
-    
+
+    reportPage = 1;
     updateReportsTable();
 }
 
@@ -2171,6 +2267,8 @@ async function copyReport(reportId) {
         const report = await detailResp.json();
 
         await loadActivityTypes();
+        // Buang draft form lama agar isian hasil copy tidak tercampur draft sebelumnya.
+        if (window.__formPersistence) window.__formPersistence.clear('createReport');
         switchView('create-report');
 
         const setValue = (id, value) => {
@@ -2187,7 +2285,16 @@ async function copyReport(reportId) {
         setValue('petugasResponden', report.petugas_responden || '');
         setValue('solusiAntisipasi', report.solusi_antisipasi || '');
 
+        // Form hasil copy diperlakukan seperti laporan baru: tanggal wajib diisi ulang.
         createDateBlocked = false;
+        const dateInput = document.getElementById('tanggalPelaksanaan');
+        if (dateInput) {
+            dateInput.value = '';
+            dateInput.classList.remove('is-invalid');
+            dateInput.focus();
+        }
+        const submitBtn = document.getElementById('createReportSubmitBtn');
+        if (submitBtn) submitBtn.disabled = false;
         renderDateStatus('createDateStatus', null, '');
         showMessage('Data laporan disalin. Pilih tanggal baru untuk menyimpan.', 'success');
     } catch (err) {
