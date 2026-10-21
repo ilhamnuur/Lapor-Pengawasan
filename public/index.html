@@ -3,1082 +3,1252 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BPS Tuban - Sistem Pelaporan Pengawasan Lapangan</title>
+    <title>BPS Tuban — Lapor Pengawasan</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease-in-out;
-            }
-            .sidebar.sidebar-active {
-                transform: translateX(0);
-            }
-        }
-        
-        .modal {
-            backdrop-filter: blur(4px);
-        }
-        
-        .loading {
-            border-top-color: #3498db;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        
-        .btn-primary {
-            background-color: #2563eb;
-            color: white;
-            transition: background-color 0.2s;
-        }
-        
-        .btn-primary:hover {
-            background-color: #1d4ed8;
-        }
-        
-        .btn-secondary {
-            background-color: #6b7280;
-            color: white;
-            transition: background-color 0.2s;
-        }
-        
-        .btn-secondary:hover {
-            background-color: #4b5563;
-        }
-        
-        .btn-danger {
-            background-color: #dc2626;
-            color: white;
-            transition: background-color 0.2s;
-        }
-        
-        .btn-danger:hover {
-            background-color: #b91c1c;
+        :root {
+            --bg: #f4f6fb;
+            --surface: #ffffff;
+            --surface-soft: #f8faff;
+            --ink: #0f172a;
+            --muted: #64748b;
+            --line: #e5eaf3;
+            --brand: #4f46e5;
+            --brand-2: #7c3aed;
+            --brand-soft: #eef2ff;
+            --success: #059669;
+            --success-soft: #ecfdf5;
+            --warning: #d97706;
+            --warning-soft: #fffbeb;
+            --danger: #dc2626;
+            --danger-soft: #fef2f2;
+            --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px -16px rgba(15, 23, 42, .22);
+            --shadow: 0 18px 45px -25px rgba(30, 41, 59, .35);
+            --radius: 20px;
         }
 
-        .btn-success {
-            background-color: #059669;
-            color: white;
-            transition: background-color 0.2s;
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(900px 500px at 8% -10%, rgba(99, 102, 241, .12), transparent 60%),
+                radial-gradient(800px 500px at 100% 0%, rgba(168, 85, 247, .09), transparent 55%),
+                var(--bg);
+            -webkit-font-smoothing: antialiased;
         }
-        
-        .btn-success:hover {
-            background-color: #047857;
-        }
+        .hidden { display: none !important; }
+        button, input, select, textarea { font: inherit; }
+        button { cursor: pointer; }
+        a { color: inherit; text-decoration: none; }
 
-        /* Mobile overlay */
-        .sidebar-overlay {
+        .app-shell { display: flex; min-height: 100vh; }
+
+        /* ============ SIDEBAR ============ */
+        .sidebar {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 30;
-            display: none;
+            inset: 0 auto 0 0;
+            width: 268px;
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            padding: 22px 16px;
+            background: rgba(255, 255, 255, .86);
+            border-right: 1px solid rgba(226, 232, 240, .9);
+            backdrop-filter: blur(18px);
+            transition: transform .28s ease;
+        }
+        .brand { display: flex; align-items: center; gap: 12px; padding: 6px 8px 26px; }
+        .brand-mark {
+            width: 44px; height: 44px; border-radius: 14px;
+            display: grid; place-items: center;
+            color: #fff; font-weight: 800; letter-spacing: -.02em;
+            background: linear-gradient(135deg, var(--brand), var(--brand-2));
+            box-shadow: 0 10px 22px -10px rgba(79, 70, 229, .8);
+        }
+        .brand-name { font-weight: 800; font-size: 15px; line-height: 1.2; }
+        .brand-sub { color: var(--muted); font-size: 11px; margin-top: 3px; }
+
+        .nav-label {
+            padding: 0 12px 8px; font-size: 10px; font-weight: 800;
+            letter-spacing: .13em; text-transform: uppercase; color: #94a3b8;
+        }
+        .nav-btn {
+            width: 100%; display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; margin-bottom: 4px;
+            border: 0; border-radius: 13px;
+            background: transparent; color: #475569;
+            font-size: 13.5px; font-weight: 600; text-align: left;
+            transition: background .18s ease, color .18s ease, transform .18s ease;
+        }
+        .nav-btn svg { width: 19px; height: 19px; flex: 0 0 auto; }
+        .nav-btn:hover { background: #f1f5f9; color: var(--brand); transform: translateX(2px); }
+        .nav-btn.active {
+            color: #fff;
+            background: linear-gradient(135deg, var(--brand), var(--brand-2));
+            box-shadow: 0 12px 24px -14px rgba(79, 70, 229, .95);
+        }
+        .nav-btn.active:hover { color: #fff; }
+        .sidebar-foot {
+            margin-top: auto; padding: 14px; border-radius: 15px;
+            background: linear-gradient(160deg, #f8faff, #eef2ff);
+            border: 1px solid #e0e7ff;
+        }
+        .sidebar-foot p { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.55; }
+        .sidebar-foot strong { color: var(--ink); }
+        .sidebar-overlay {
+            position: fixed; inset: 0; z-index: 35; display: none;
+            background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px);
         }
 
-        .sidebar-overlay.active {
-            display: block;
+        /* ============ MAIN ============ */
+        .app-main { flex: 1; min-width: 0; margin-left: 268px; }
+        .topbar {
+            position: sticky; top: 0; z-index: 30;
+            height: 72px; display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; padding: 0 28px;
+            background: rgba(244, 246, 251, .78);
+            border-bottom: 1px solid rgba(226, 232, 240, .75);
+            backdrop-filter: blur(16px);
         }
-
-        @media (min-width: 768px) {
-            .sidebar-overlay {
-                display: none !important;
-            }
+        .topbar-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+        .topbar-title { font-size: 15px; font-weight: 800; margin: 0; }
+        .topbar-sub { font-size: 11.5px; color: var(--muted); margin: 2px 0 0; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .user-chip {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 12px 6px 6px; border-radius: 999px;
+            background: #fff; border: 1px solid var(--line);
+            box-shadow: var(--shadow-sm);
         }
-        /* Responsive Table */
-        @media (max-width: 768px) {
-            /* Reports Table */
-            #reportsTableBody tr {
-                display: block;
-                margin-bottom: 1rem;
-                border: 1px solid #e5e7eb;
-                border-radius: 0.5rem;
-                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-                padding: 1rem;
-            }
-            #reportsView thead {
-                display: none;
-            }
-            #reportsTableBody td {
-                display: block;
-                text-align: right;
-                padding-left: 50%;
-                position: relative;
-                border: none;
-                padding-top: 0.5rem;
-                padding-bottom: 0.5rem;
-            }
-            #reportsTableBody td::before {
-                content: attr(data-label);
-                position: absolute;
-                left: 0.5rem;
-                width: 45%;
-                padding-right: 0.5rem;
-                text-align: left;
-                font-weight: 600;
-                color: #4b5563;
-            }
-            #reportsTableBody td:last-child {
-                text-align: center;
-                padding-left: 0;
-            }
-            #reportsTableBody td:last-child::before {
-                content: none;
-            }
-
-            /* Users Table */
-            #usersTableBody tr {
-                display: block;
-                margin-bottom: 1rem;
-                border: 1px solid #e5e7eb;
-                border-radius: 0.5rem;
-                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-                padding: 1rem;
-            }
-            #usersView thead {
-                display: none;
-            }
-            #usersTableBody td {
-                display: block;
-                text-align: right;
-                padding-left: 50%;
-                position: relative;
-                border: none;
-                padding-top: 0.5rem;
-                padding-bottom: 0.5rem;
-            }
-            #usersTableBody td::before {
-                position: absolute;
-                left: 0.5rem;
-                width: 45%;
-                padding-right: 0.5rem;
-                text-align: left;
-                font-weight: 600;
-                color: #4b5563;
-            }
-            #usersTableBody td:nth-child(1)::before {
-                content: "Username";
-            }
-            #usersTableBody td:nth-child(2)::before {
-                content: "Nama";
-            }
-            #usersTableBody td:nth-child(3)::before {
-                content: "Role";
-            }
-            #usersTableBody td:nth-child(4)::before {
-                content: "Dibuat";
-            }
-            #usersTableBody td:last-child {
-                text-align: center;
-                padding-left: 0;
-            }
-            /* Hide label for action column on mobile to avoid "Aksi" appearing between buttons */
-            #usersTableBody td:last-child::before {
-                content: none;
-            }
-
-            /* Activity Types Table */
-            #activityTypesTableBody tr {
-                display: block;
-                margin-bottom: 1rem;
-                border: 1px solid #e5e7eb;
-                border-radius: 0.5rem;
-                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-                padding: 1rem;
-            }
-            #activity-typesView thead {
-                display: none;
-            }
-            #activityTypesTableBody td {
-                display: block;
-                text-align: right;
-                padding-left: 50%;
-                position: relative;
-                border: none;
-                padding-top: 0.5rem;
-                padding-bottom: 0.5rem;
-            }
-            #activityTypesTableBody td::before {
-                position: absolute;
-                left: 0.5rem;
-                width: 45%;
-                padding-right: 0.5rem;
-                text-align: left;
-                font-weight: 600;
-                color: #4b5563;
-            }
-            #activityTypesTableBody td:nth-child(1)::before {
-                content: "Nama";
-            }
-            #activityTypesTableBody td:nth-child(2)::before {
-                content: "Deskripsi";
-            }
-            #activityTypesTableBody td:nth-child(3)::before {
-                content: "Dibuat";
-            }
-            #activityTypesTableBody td:last-child {
-                text-align: center;
-                padding-left: 0;
-            }
-            /* Hide label for action column on mobile to avoid "Aksi" appearing between buttons */
-            #activityTypesTableBody td:last-child::before {
-                content: none;
-            }
-
-            /* Scoped mobile layout improvements for action areas */
-            /* Header sections stack neatly on mobile */
-            .mb-6.flex.flex-col.sm\\:flex-row {
-                gap: 0.75rem;
-                align-items: stretch;
-            }
-
-            /* Header action groups wrap on mobile */
-            .mb-6 .header-actions {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-                justify-content: center;
-                width: 100%;
-            }
-
-            /* Ensure action buttons inside table cells wrap and do not overlap */
-            #usersTableBody td:last-child,
-            #activityTypesTableBody td:last-child,
-            #reportsTableBody td:last-child {
-                text-align: center;
-                padding-left: 0;
-            }
-            #usersTableBody td:last-child .actions,
-            #activityTypesTableBody td:last-child .actions,
-            #reportsTableBody td:last-child .actions {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-                justify-content: center;
-                width: 100%;
-            }
-
-            /* Make header buttons flexible on small screens */
-            #usersView .header-actions > button,
-            #activity-typesView .header-actions > button {
-                flex: 1 1 120px;
-            }
-
-            /* Generic table tweaks to prevent overlap on mobile */
-            table {
-                table-layout: fixed;
-                width: 100%;
-            }
-            th, td {
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                white-space: normal;
-            }
+        .avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            display: grid; place-items: center; flex: 0 0 auto;
+            background: linear-gradient(135deg, #e0e7ff, #f3e8ff);
+            color: var(--brand); font-size: 12px; font-weight: 800;
         }
+        .user-chip-text { display: flex; flex-direction: column; line-height: 1.15; }
+        .user-chip-name { font-size: 12px; font-weight: 700; }
+        .user-chip-role { font-size: 10px; color: var(--muted); text-transform: capitalize; }
+        .icon-btn {
+            width: 40px; height: 40px; display: grid; place-items: center;
+            border: 1px solid var(--line); border-radius: 12px;
+            background: #fff; color: #475569; box-shadow: var(--shadow-sm);
+            transition: all .18s ease;
+        }
+        .icon-btn:hover { color: var(--brand); border-color: #c7d2fe; }
+        .menu-toggle { display: none; }
+        .content { max-width: 1450px; margin: 0 auto; padding: 28px; }
 
-        /* Extra small devices: reduce paddings to avoid overflow */
-        @media (max-width: 400px) {
-            #usersView .px-6, #usersView .py-3,
-            #activity-typesView .px-6, #activity-typesView .py-3 {
-                padding-left: 0.75rem !important;
-                padding-right: 0.75rem !important;
+        /* ============ SHARED ============ */
+        .view { animation: fadeUp .35s ease both; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; flex-wrap: wrap; }
+        .page-title { margin: 0; font-size: clamp(22px, 2.2vw, 30px); letter-spacing: -.035em; font-weight: 800; }
+        .page-sub { margin: 7px 0 0; color: var(--muted); font-size: 13.5px; }
+        .card {
+            background: var(--surface); border: 1px solid var(--line);
+            border-radius: var(--radius); box-shadow: var(--shadow-sm);
+        }
+        .card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px 22px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+        .card-title { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.015em; }
+        .card-sub { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+        .card-body { padding: 22px; }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            border: 1px solid transparent; border-radius: 12px;
+            padding: 10px 15px; font-size: 12.5px; font-weight: 700;
+            transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+            white-space: nowrap;
+        }
+        .btn svg { width: 16px; height: 16px; }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled, .btn[disabled] { opacity: .5; cursor: not-allowed; transform: none !important; box-shadow: none !important; pointer-events: none; }
+        .btn-primary { color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand-2)); box-shadow: 0 12px 24px -14px rgba(79, 70, 229, .95); }
+        .btn-primary:hover { box-shadow: 0 16px 28px -14px rgba(79, 70, 229, 1); }
+        .btn-secondary { color: #334155; background: #fff; border-color: var(--line); }
+        .btn-secondary:hover { border-color: #c7d2fe; color: var(--brand); }
+        .btn-success { color: #fff; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 12px 22px -14px rgba(5, 150, 105, .9); }
+        .btn-danger { color: #fff; background: linear-gradient(135deg, #f87171, #dc2626); box-shadow: 0 12px 22px -14px rgba(220, 38, 38, .9); }
+        .btn-ghost { color: var(--brand); background: var(--brand-soft); }
+        .btn-ghost:hover { background: #e0e7ff; }
+
+        .badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+        .badge-success { color: #047857; background: var(--success-soft); }
+        .badge-primary { color: var(--brand); background: var(--brand-soft); }
+        .badge-warning { color: #b45309; background: var(--warning-soft); }
+        .badge-danger { color: #b91c1c; background: var(--danger-soft); }
+
+        /* ============ HERO / HOME ============ */
+        .hero {
+            position: relative; overflow: hidden;
+            border-radius: 26px; padding: 28px;
+            color: #fff; background: linear-gradient(120deg, #4338ca 0%, #6d28d9 55%, #9333ea 100%);
+            box-shadow: 0 24px 55px -30px rgba(79, 70, 229, .8);
+            margin-bottom: 22px;
+        }
+        .hero::before, .hero::after {
+            content: ''; position: absolute; border-radius: 50%;
+            background: rgba(255, 255, 255, .14); filter: blur(2px);
+        }
+        .hero::before { width: 220px; height: 220px; right: -70px; top: -90px; }
+        .hero::after { width: 150px; height: 150px; right: 130px; bottom: -95px; background: rgba(255, 255, 255, .09); }
+        .hero-inner { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: wrap; }
+        .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .78); }
+        .hero h2 { margin: 10px 0 7px; font-size: clamp(22px, 2.6vw, 32px); letter-spacing: -.04em; font-weight: 800; }
+        .hero p { margin: 0; color: rgba(255, 255, 255, .76); font-size: 13px; max-width: 560px; line-height: 1.65; }
+        .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .hero .btn-light { background: #fff; color: #4338ca; box-shadow: 0 14px 30px -18px rgba(15, 23, 42, .8); }
+        .hero .btn-glass { background: rgba(255, 255, 255, .14); color: #fff; border-color: rgba(255, 255, 255, .24); }
+        .hero .btn-glass:hover { background: rgba(255, 255, 255, .22); }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
+        .stat-card { padding: 20px; display: flex; align-items: center; gap: 14px; position: relative; overflow: hidden; }
+        .stat-card::after { content: ''; position: absolute; width: 90px; height: 90px; border-radius: 50%; right: -30px; bottom: -40px; background: var(--brand-soft); opacity: .8; }
+        .stat-icon { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex: 0 0 auto; position: relative; z-index: 1; }
+        .stat-icon svg { width: 22px; height: 22px; }
+        .stat-icon.indigo { color: var(--brand); background: var(--brand-soft); }
+        .stat-icon.green { color: var(--success); background: var(--success-soft); }
+        .stat-icon.amber { color: var(--warning); background: var(--warning-soft); }
+        .stat-icon.rose { color: #e11d48; background: #fff1f2; }
+        .stat-meta { position: relative; z-index: 1; min-width: 0; }
+        .stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .stat-value { margin: 4px 0 0; font-size: 25px; line-height: 1; font-weight: 800; letter-spacing: -.04em; }
+
+        .home-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .85fr); gap: 16px; margin-bottom: 22px; }
+
+        /* Calendar */
+        .calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .calendar-nav { display: flex; align-items: center; gap: 6px; }
+        .calendar-nav .icon-btn { width: 36px; height: 36px; border-radius: 10px; box-shadow: none; }
+        .calendar-month { font-size: 15px; font-weight: 800; letter-spacing: -.02em; min-width: 150px; text-align: center; }
+        .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 18px 0 8px; }
+        .calendar-weekdays span { text-align: center; font-size: 10.5px; font-weight: 800; color: #94a3b8; letter-spacing: .06em; text-transform: uppercase; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .cal-day {
+            position: relative; min-height: 58px; border-radius: 12px;
+            border: 1px solid transparent; background: #f8fafc;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            color: #334155; font-size: 12px; font-weight: 700;
+            transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+        }
+        .cal-day:not(.is-empty):hover { transform: translateY(-2px); background: #eef2ff; border-color: #c7d2fe; box-shadow: var(--shadow-sm); }
+        .cal-day.is-empty { background: transparent; cursor: default; }
+        .cal-day.is-other { color: #cbd5e1; background: transparent; }
+        .cal-day.is-today { border-color: #a5b4fc; background: #eef2ff; }
+        .cal-day.has-report { background: linear-gradient(160deg, #eef2ff, #f5f3ff); color: #4338ca; }
+        .cal-day.is-selected {
+            background: linear-gradient(135deg, var(--brand), var(--brand-2));
+            color: #fff; border-color: transparent;
+            box-shadow: 0 12px 24px -14px rgba(79, 70, 229, .95);
+        }
+        .cal-day.is-selected .cal-count { background: rgba(255, 255, 255, .25); color: #fff; }
+        .cal-day.is-selected .cal-dot { background: #fff; }
+        .cal-day-num { line-height: 1; }
+        .cal-dots { display: flex; align-items: center; justify-content: center; gap: 3px; height: 5px; }
+        .cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--brand); }
+        .cal-count {
+            position: absolute; top: 5px; right: 5px;
+            min-width: 16px; height: 16px; padding: 0 4px;
+            border-radius: 999px; display: grid; place-items: center;
+            background: #e0e7ff; color: #4338ca; font-size: 9px; font-weight: 800;
+        }
+        .calendar-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; color: var(--muted); font-size: 10.5px; font-weight: 600; }
+        .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+        .legend-box { width: 12px; height: 12px; border-radius: 4px; border: 1px solid #a5b4fc; background: #eef2ff; }
+
+        .day-panel { display: flex; flex-direction: column; min-height: 100%; }
+        .day-panel-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--line); }
+        .day-panel-date { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: -.02em; }
+        .day-panel-meta { margin: 5px 0 0; color: var(--muted); font-size: 11.5px; }
+        .day-list { padding: 14px; display: flex; flex-direction: column; gap: 9px; overflow-y: auto; max-height: 310px; }
+        .day-item {
+            width: 100%; text-align: left; border: 1px solid var(--line);
+            background: #fff; border-radius: 13px; padding: 12px;
+            transition: all .16s ease;
+        }
+        .day-item:hover { border-color: #a5b4fc; background: #f8faff; transform: translateY(-1px); }
+        .day-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .day-item-title { font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1.35; }
+        .day-item-sub { margin-top: 4px; font-size: 10.5px; color: var(--muted); }
+        .day-empty { text-align: center; padding: 28px 16px; }
+        .day-empty-icon { width: 46px; height: 46px; margin: 0 auto 10px; border-radius: 14px; display: grid; place-items: center; color: var(--brand); background: var(--brand-soft); }
+        .day-empty p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+        .day-panel-foot { margin-top: auto; padding: 14px 18px 18px; border-top: 1px solid var(--line); }
+
+        /* Recent reports */
+        .recent-list { display: flex; flex-direction: column; }
+        .recent-item { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-top: 1px solid var(--line); transition: background .16s ease; }
+        .recent-item:first-child { border-top: 0; }
+        .recent-item:hover { background: #f8faff; }
+        .date-pill { width: 48px; flex: 0 0 auto; text-align: center; border-radius: 12px; background: var(--brand-soft); color: #4338ca; padding: 6px 4px; }
+        .date-pill strong { display: block; font-size: 16px; line-height: 1; font-weight: 800; }
+        .date-pill span { display: block; margin-top: 3px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+        .recent-main { flex: 1; min-width: 0; }
+        .recent-title { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .recent-sub { margin-top: 3px; font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .recent-arrow { color: #cbd5e1; flex: 0 0 auto; }
+
+        /* ============ TABLES ============ */
+        .table-wrap { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .data-table thead th {
+            padding: 12px 20px; text-align: left; white-space: nowrap;
+            background: #f8fafc; color: #94a3b8;
+            font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+            border-bottom: 1px solid var(--line);
+        }
+        .data-table tbody td { padding: 15px 20px; border-bottom: 1px solid var(--line); font-size: 12.5px; vertical-align: middle; }
+        .data-table tbody tr:last-child td { border-bottom: 0; }
+        .data-table tbody tr { transition: background .15s ease; }
+        .data-table tbody tr:hover { background: #f8faff; }
+        .data-table tbody th:last-child, .data-table tbody td:last-child, .data-table thead th:last-child { white-space: nowrap; }
+        .cell-main { font-weight: 700; color: var(--ink); }
+        .cell-sub { margin-top: 3px; font-size: 10.5px; color: var(--muted); }
+        .cell-person { display: flex; align-items: center; gap: 10px; }
+        .action-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .data-table td:last-child .action-group { flex-wrap: nowrap; }
+        .action-link {
+            border: 1px solid var(--line); background: #fff; border-radius: 9px;
+            padding: 6px 9px; font-size: 10.5px; font-weight: 700; color: #475569;
+            transition: all .15s ease;
+        }
+        .action-link:hover { transform: translateY(-1px); border-color: #c7d2fe; color: var(--brand); background: #f8faff; }
+        .action-link.danger:hover { color: var(--danger); border-color: #fecaca; background: var(--danger-soft); }
+        .action-link.warn:hover { color: var(--warning); border-color: #fde68a; background: var(--warning-soft); }
+        .action-link.green:hover { color: var(--success); border-color: #a7f3d0; background: var(--success-soft); }
+        .empty-row { padding: 48px 20px !important; text-align: center; color: var(--muted); }
+        .empty-row svg { width: 36px; height: 36px; margin: 0 auto 8px; color: #cbd5e1; }
+        .empty-row p { margin: 0; font-size: 12.5px; }
+
+        /* ============ FORMS ============ */
+        .form-card { padding: 24px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .form-field { display: flex; flex-direction: column; gap: 7px; }
+        .form-field.full { grid-column: 1 / -1; }
+        .label { font-size: 12px; font-weight: 700; color: #334155; }
+        .label .req { color: var(--danger); }
+        .input, .select, .textarea {
+            width: 100%; border: 1px solid #dbe3ef; border-radius: 12px;
+            background: #fff; color: var(--ink); padding: 11px 13px;
+            font-size: 12.5px; outline: none;
+            transition: border-color .16s ease, box-shadow .16s ease;
+        }
+        .input::placeholder, .textarea::placeholder { color: #a8b3c4; }
+        .input:focus, .select:focus, .textarea:focus { border-color: #a5b4fc; box-shadow: 0 0 0 4px rgba(99, 102, 241, .12); }
+        .input.is-invalid, .input.is-invalid:focus { border-color: #fca5a5; box-shadow: 0 0 0 4px rgba(239, 68, 68, .1); }
+        .textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+        .form-hint { margin: 0; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+        .date-status { display: flex; align-items: flex-start; gap: 8px; padding: 9px 11px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 1.45; }
+        .date-status svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; }
+        .date-status.ok { color: #047857; background: var(--success-soft); }
+        .date-status.blocked { color: #b91c1c; background: var(--danger-soft); }
+        .date-status.checking { color: var(--brand); background: var(--brand-soft); }
+        .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 22px; margin-top: 6px; border-top: 1px solid var(--line); }
+        .current-photo { margin-top: 2px; font-size: 11px; color: var(--brand); font-weight: 600; }
+        input[type="file"] { font-size: 11.5px; color: var(--muted); }
+        input[type="file"]::file-selector-button {
+            border: 1px solid #dbe3ef; background: #f8fafc; color: #475569;
+            border-radius: 9px; padding: 8px 12px; margin-right: 10px;
+            font-size: 11px; font-weight: 700; cursor: pointer;
+        }
+        input[type="file"]::file-selector-button:hover { background: var(--brand-soft); color: var(--brand); }
+
+        .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .search-box { position: relative; flex: 1 1 280px; }
+        .search-box svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8; }
+        .search-box .input { padding-left: 36px; min-width: 230px; }
+        .select-compact { min-width: 145px; width: 180px; flex: 0 0 auto; }
+
+        /* ============ MODALS ============ */
+        .modal {
+            position: fixed; inset: 0; z-index: 60;
+            display: flex; align-items: center; justify-content: center;
+            padding: 18px; background: rgba(15, 23, 42, .5);
+            backdrop-filter: blur(6px);
+        }
+        .modal.hidden { display: none !important; }
+        .modal-card {
+            width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto;
+            background: #fff; border-radius: 22px;
+            box-shadow: 0 30px 80px -30px rgba(15, 23, 42, .7);
+            animation: modalIn .25s ease both;
+        }
+        .modal-card.wide { max-width: 880px; }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+        .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px 22px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #fff; z-index: 1; border-radius: 22px 22px 0 0; }
+        .modal-title { margin: 0; font-size: 15px; font-weight: 800; }
+        .modal-body { padding: 22px; }
+        .modal-close { width: 36px; height: 36px; border: 0; background: #f1f5f9; border-radius: 10px; display: grid; place-items: center; color: #64748b; }
+        .modal-close:hover { background: #e2e8f0; color: var(--ink); }
+
+        /* Detail modal content */
+        #reportDetailContent .space-y-6 > div > label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+        #reportDetailContent p { font-size: 12.5px; line-height: 1.65; }
+        #reportDetailContent img { border-radius: 12px; }
+
+        /* ============ LOGIN ============ */
+        .login-shell { min-height: 100vh; display: grid; place-items: center; padding: 22px; }
+        .login-card {
+            width: min(980px, 100%); display: grid; grid-template-columns: 1.05fr .95fr;
+            background: #fff; border-radius: 28px; overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, .9);
+            box-shadow: 0 40px 90px -45px rgba(30, 41, 59, .6);
+        }
+        .login-aside {
+            position: relative; overflow: hidden; padding: 42px;
+            color: #fff; background: linear-gradient(145deg, #312e81, #4f46e5 52%, #7c3aed);
+            display: flex; flex-direction: column; justify-content: space-between; min-height: 560px;
+        }
+        .login-aside::before { content: ''; position: absolute; width: 300px; height: 300px; border-radius: 50%; right: -120px; top: -120px; background: rgba(255, 255, 255, .12); }
+        .login-aside::after { content: ''; position: absolute; width: 200px; height: 200px; border-radius: 50%; left: -100px; bottom: -100px; background: rgba(255, 255, 255, .09); }
+        .login-aside > * { position: relative; z-index: 1; }
+        .login-logo { display: flex; align-items: center; gap: 12px; }
+        .login-logo .brand-mark { background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .3); box-shadow: none; }
+        .login-logo strong { display: block; font-size: 14px; }
+        .login-logo span { font-size: 10.5px; color: rgba(255, 255, 255, .7); }
+        .login-aside h1 { margin: 0 0 12px; font-size: clamp(27px, 3vw, 38px); line-height: 1.12; letter-spacing: -.045em; font-weight: 800; }
+        .login-aside > div > p { margin: 0; font-size: 12.5px; line-height: 1.7; color: rgba(255, 255, 255, .78); max-width: 360px; }
+        .login-features { display: flex; flex-direction: column; gap: 11px; margin-top: 28px; }
+        .login-feature { display: flex; align-items: center; gap: 10px; font-size: 11.5px; font-weight: 600; color: rgba(255, 255, 255, .9); }
+        .login-feature span { width: 22px; height: 22px; border-radius: 7px; background: rgba(255, 255, 255, .16); display: grid; place-items: center; font-size: 10px; }
+        .login-main { padding: 42px; display: flex; flex-direction: column; justify-content: center; }
+        .login-main h2 { margin: 0; font-size: 23px; letter-spacing: -.035em; font-weight: 800; }
+        .login-main > p { margin: 8px 0 28px; color: var(--muted); font-size: 12.5px; }
+        .login-field { margin-bottom: 16px; }
+        .login-field label { display: block; margin-bottom: 7px; font-size: 11.5px; font-weight: 700; color: #334155; }
+        .login-foot { margin-top: 22px; text-align: center; font-size: 10.5px; color: #94a3b8; }
+
+        /* ============ TOAST & LOADING ============ */
+        #messageContainer { position: fixed; top: 84px; right: 22px; z-index: 90; display: flex; flex-direction: column; gap: 9px; pointer-events: none; }
+        .toast {
+            min-width: 240px; max-width: 370px; padding: 12px 15px;
+            border-radius: 12px; color: #fff; font-size: 12px; font-weight: 600;
+            line-height: 1.5; box-shadow: 0 18px 40px -18px rgba(15, 23, 42, .55);
+            animation: toastIn .28s cubic-bezier(.22, 1, .36, 1) both;
+        }
+        .toast-success { background: linear-gradient(135deg, #10b981, #047857); }
+        .toast-error { background: linear-gradient(135deg, #f87171, #dc2626); }
+        .toast-info { background: linear-gradient(135deg, #6366f1, #4338ca); }
+        .toast.hide { animation: toastOut .22s ease both; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+        @keyframes toastOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(20px); } }
+
+        .loading-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, .35); backdrop-filter: blur(3px); }
+        .loading-box { display: flex; align-items: center; gap: 11px; padding: 14px 18px; border-radius: 14px; background: #fff; box-shadow: var(--shadow); font-size: 12px; font-weight: 700; color: #334155; }
+        .spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid #e2e8f0; border-top-color: var(--brand); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 1180px) {
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .home-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 900px) {
+            .sidebar { transform: translateX(-105%); box-shadow: 0 30px 70px rgba(15, 23, 42, .3); }
+            .sidebar.sidebar-active { transform: translateX(0); }
+            .sidebar-overlay.active { display: block; }
+            .menu-toggle { display: grid; }
+            .app-main { margin-left: 0; }
+            .topbar { padding: 0 18px; }
+            .content { padding: 18px; }
+            .login-card { grid-template-columns: 1fr; }
+            .login-aside { min-height: auto; padding: 30px; }
+            .login-features { display: none; }
+            .login-main { padding: 30px; }
+        }
+        @media (max-width: 720px) {
+            .topbar-sub { display: none; }
+            .user-chip-text { display: none; }
+            .user-chip { padding: 4px; }
+            .hero { padding: 22px; }
+            .hero-inner { align-items: flex-start; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-field.full { grid-column: auto; }
+            .form-card { padding: 18px; }
+            .card-head, .card-body { padding-left: 16px; padding-right: 16px; }
+            .calendar-grid, .calendar-weekdays { gap: 4px; }
+            .cal-day { min-height: 48px; border-radius: 10px; }
+            .search-box .input { min-width: 0; width: 100%; }
+            .toolbar { width: 100%; }
+            .toolbar > * { flex: 1 1 auto; }
+            .select-compact { min-width: 0; width: 100%; }
+            .page-head { flex-direction: column; }
+            .form-actions { flex-direction: column-reverse; }
+            .form-actions .btn { width: 100%; }
+            .stats-grid { grid-template-columns: 1fr; }
+
+            /* Mobile table -> cards */
+            .data-table thead { display: none; }
+            .data-table, .data-table tbody { display: block; width: 100%; }
+            .data-table tbody tr {
+                display: block; margin: 12px 16px; padding: 10px 0;
+                border: 1px solid var(--line); border-radius: 14px; background: #fff;
             }
+            .data-table tbody td { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 8px 14px; border: 0; text-align: right; }
+            .data-table tbody td::before { content: attr(data-label); flex: 0 0 38%; text-align: left; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+            .data-table tbody td:last-child::before { content: none; }
+            .data-table tbody td:last-child { justify-content: flex-end; text-align: center; }
+            .data-table tbody td[colspan] { display: block; text-align: center; }
+            .data-table tbody td[colspan]::before { content: none; }
+            .cell-person { justify-content: flex-end; }
+            .action-group { justify-content: flex-end; }
+            .data-table td:last-child .action-group { flex-wrap: wrap; }
+        }
+        @media (max-width: 420px) {
+            .content { padding: 14px; }
+            .topbar { height: 64px; padding: 0 14px; }
+            #logoutBtn span { display: none; }
+            #logoutBtn { padding: 10px; }
+            .cal-day { min-height: 42px; font-size: 11px; }
+            .cal-count { top: 3px; right: 3px; }
+            .hero-actions { width: 100%; }
+            .hero-actions .btn { flex: 1; }
         }
     </style>
 </head>
-<body class="bg-gray-50">
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
-            <div class="loading border-4 border-gray-200 rounded-full w-8 h-8"></div>
-            <span class="text-gray-700">Memuat...</span>
-        </div>
+<body>
+    <!-- Loading -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-box"><div class="spinner"></div><span>Memuat data...</span></div>
     </div>
 
-    <!-- Sidebar Overlay for Mobile -->
+    <!-- Mobile sidebar overlay -->
     <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
-    <!-- Login Screen -->
-    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800">
-        <div class="max-w-md w-full mx-4">
-            <div class="bg-white rounded-lg shadow-xl p-8">
-                <!-- Header with Logo -->
-                <div class="text-center mb-8">
-                    <div class="mx-auto mb-4 w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center">
-                        <span class="text-white font-bold text-2xl">BPS</span>
+    <!-- ================= LOGIN ================= -->
+    <div id="loginScreen" class="login-shell">
+        <div class="login-card">
+            <div class="login-aside">
+                <div class="login-logo">
+                    <div class="brand-mark">BPS</div>
+                    <div>
+                        <strong>BPS Kabupaten Tuban</strong>
+                        <span>Sistem Pelaporan Pengawasan</span>
                     </div>
-                    <h1 class="text-2xl font-bold text-gray-900">BPS Kabupaten Tuban</h1>
-                    <p class="text-gray-600 mt-2">Sistem Pelaporan Pengawasan Lapangan</p>
                 </div>
 
-                <!-- Login Form -->
-                <form id="loginForm" class="space-y-6">
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
-                        <input type="text" id="username" name="username" required placeholder="username-bps"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <div>
+                    <span class="hero-eyebrow">Lapor Pengawasan</span>
+                    <h1>Catat setiap kunjungan.<br>Lihat agenda dalam satu kalender.</h1>
+                    <p>Kelola laporan perjalanan dinas pengawasan lapangan dengan tampilan kalender yang rapi, cepat, dan mudah dipantau.</p>
+                    <div class="login-features">
+                        <div class="login-feature"><span>01</span> Kalender agenda pengawasan per tanggal</div>
+                        <div class="login-feature"><span>02</span> Cegah entri ganda pada tanggal yang sama</div>
+                        <div class="login-feature"><span>03</span> Cetak laporan & rekap dalam sekali klik</div>
                     </div>
+                </div>
 
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                        <input type="password" id="password" name="password" required placeholder="password"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p style="font-size:10.5px;color:rgba(255,255,255,.55);">© 2026 Badan Pusat Statistik Kabupaten Tuban</p>
+            </div>
+
+            <div class="login-main">
+                <h2>Selamat datang kembali</h2>
+                <p>Masuk untuk melanjutkan pengelolaan laporan pengawasan.</p>
+
+                <form id="loginForm">
+                    <div class="login-field">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required placeholder="username-bps" class="input" autocomplete="username">
                     </div>
-
-                    <button type="submit" class="w-full btn-primary py-3 px-4 rounded-md font-medium">
-                        Masuk
-                    </button>
+                    <div class="login-field">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required placeholder="Masukkan password" class="input" autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;margin-top:6px;">Masuk ke dashboard</button>
                 </form>
-
+                <div class="login-foot">Gunakan akun yang telah terdaftar pada sistem.</div>
             </div>
         </div>
     </div>
 
-    <!-- Main Dashboard -->
+    <!-- ================= DASHBOARD ================= -->
     <div id="dashboard" class="hidden">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b border-gray-200">
-            <div class="flex items-center justify-between px-6 py-4">
-                <div class="flex items-center space-x-4">
-                    <button id="sidebarToggle" class="md:hidden p-2 rounded-md hover:bg-gray-100">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                        </svg>
-                    </button>
-                    <h1 class="text-xl font-semibold text-gray-900">BPS Tuban - Sistem Pelaporan</h1>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <span id="userInfo" class="text-gray-700"></span>
-                    <button id="logoutBtn" class="btn-secondary px-4 py-2 rounded-md text-sm">
-                        Keluar
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <div class="flex">
+        <div class="app-shell">
             <!-- Sidebar -->
-            <nav id="sidebar" class="sidebar fixed md:relative md:translate-x-0 w-64 h-screen bg-white shadow-lg z-40">
-                <div class="p-6">
-                    <div class="flex items-center space-x-3 mb-6">
-                        <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                            <span class="text-white font-bold text-sm">BPS</span>
-                        </div>
-                        <span class="font-semibold text-gray-900">Dashboard</span>
+            <nav id="sidebar" class="sidebar">
+                <div class="brand">
+                    <div class="brand-mark">BPS</div>
+                    <div>
+                        <div class="brand-name">Lapor Pengawasan</div>
+                        <div class="brand-sub">BPS Kabupaten Tuban</div>
                     </div>
-                    
-                    <nav class="space-y-2">
-                        <button class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors" data-view="overview">
-                            <div class="flex items-center space-x-3">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                </svg>
-                                <span>Ringkasan</span>
-                            </div>
-                        </button>
-                        
-                        <button class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors" data-view="reports">
-                            <div class="flex items-center space-x-3">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                <span>Laporan Pengawasan</span>
-                            </div>
-                        </button>
-                        
-                        <button id="createReportBtn" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors pegawai-only hidden" data-view="create-report">
-                            <div class="flex items-center space-x-3">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                <span>Buat Laporan Baru</span>
-                            </div>
-                        </button>
+                </div>
 
-                        <button class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors kepala-only hidden" data-view="users">
-                            <div class="flex items-center space-x-3">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                                </svg>
-                                <span>Manajemen User</span>
-                            </div>
-                        </button>
+                <div class="nav-label">Menu utama</div>
+                <button class="nav-btn" data-view="overview">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span>Beranda</span>
+                </button>
 
-                        <button class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors kepala-only hidden" data-view="activity-types">
-                            <div class="flex items-center space-x-3">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2z"></path>
-                                </svg>
-                                <span>Jenis Kegiatan</span>
-                            </div>
-                        </button>
-                    </nav>
+                <button class="nav-btn" data-view="reports">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span>Laporan Pengawasan</span>
+                </button>
+
+                <button id="createReportBtn" class="nav-btn pegawai-only hidden" data-view="create-report">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v16m8-8H4"/></svg>
+                    <span>Buat Laporan Baru</span>
+                </button>
+
+                <div class="nav-label" style="margin-top:18px;">Pengaturan</div>
+                <button class="nav-btn kepala-only hidden" data-view="users">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <span>Manajemen User</span>
+                </button>
+
+                <button class="nav-btn kepala-only hidden" data-view="activity-types">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11H5m14-7H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>
+                    <span>Jenis Kegiatan</span>
+                </button>
+
+                <div class="sidebar-foot">
+                    <p><strong>Tips:</strong> satu tanggal hanya untuk satu laporan pengawasan. Tanggal yang sudah dipakai otomatis ditandai di kalender.</p>
                 </div>
             </nav>
 
-            <!-- Main Content -->
-            <main class="flex-1 p-6 md:ml-0 ml-0">
-                <!-- Overview View -->
-                <div id="overviewView" class="view">
-                    <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Ringkasan Kegiatan</h2>
-                        <p class="text-gray-600">Selamat datang di sistem pelaporan pengawasan lapangan BPS Kabupaten Tuban</p>
-                    </div>
-
-                    <!-- Stats Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <div class="flex items-center">
-                                <div class="p-3 rounded-full bg-blue-100 mr-4">
-                                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Total Laporan</p>
-                                    <p id="totalReports" class="text-2xl font-semibold text-gray-900">-</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-white rounded-lg shadow p-6">
-                            <div class="flex items-center">
-                                <div class="p-3 rounded-full bg-green-100 mr-4">
-                                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v6a2 2 0 002 2zm1 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H8a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Laporan Bulan Ini</p>
-                                    <p id="monthlyReports" class="text-2xl font-semibold text-gray-900">-</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-white rounded-lg shadow p-6 kepala-only hidden">
-                            <div class="flex items-center">
-                                <div class="p-3 rounded-full bg-yellow-100 mr-4">
-                                    <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Pegawai Aktif</p>
-                                    <p id="activePegawai" class="text-2xl font-semibold text-gray-900">-</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Reports -->
-                    <div class="bg-white rounded-lg shadow">
-                        <div class="px-6 py-4 border-b border-gray-200">
-                            <h3 class="text-lg font-medium text-gray-900">Laporan Terbaru</h3>
-                        </div>
-                        <div class="p-6">
-                            <div id="recentReportsTable">
-                                <p class="text-gray-500 text-center py-4">Memuat data...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Reports View -->
-                <div id="reportsView" class="view hidden">
-                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+            <div class="app-main">
+                <!-- Topbar -->
+                <header class="topbar">
+                    <div class="topbar-left">
+                        <button id="sidebarToggle" class="icon-btn menu-toggle" aria-label="Buka menu">
+                            <svg width="19" height="19" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        </button>
                         <div>
-                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Daftar Laporan Pengawasan</h2>
-                            <p class="text-gray-600">Kelola semua laporan perjalanan dinas</p>
+                            <h1 id="pageTitle" class="topbar-title">Beranda</h1>
+                            <p id="pageSubtitle" class="topbar-sub">Kalender & ringkasan kegiatan pengawasan</p>
                         </div>
-                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 header-actions">
-                            <!-- Search and Filter -->
-                            <div class="flex space-x-2 header-actions">
-                                <input type="text" id="searchReports" placeholder="Cari laporan..." 
-                                       class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <select id="filterByMonth" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Semua Bulan</option>
-                                    <option value="01">Januari</option>
-                                    <option value="02">Februari</option>
-                                    <option value="03">Maret</option>
-                                    <option value="04">April</option>
-                                    <option value="05">Mei</option>
-                                    <option value="06">Juni</option>
-                                    <option value="07">Juli</option>
-                                    <option value="08">Agustus</option>
-                                    <option value="09">September</option>
-                                    <option value="10">Oktober</option>
-                                    <option value="11">November</option>
-                                    <option value="12">Desember</option>
-                                </select>
-                            </div>
-                            <div class="flex space-x-2">
-                                <button id="exportExcelBtn" class="kepala-only hidden btn-success px-4 py-2 rounded-md text-sm">
-                                    <div class="flex items-center space-x-2">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                        <span>Excel</span>
-                                    </div>
-                                </button>
-                                <button id="printAllReportsBtn" class="kepala-only hidden btn-secondary px-4 py-2 rounded-md text-sm">
-                                    <div class="flex items-center space-x-2">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H3a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                                        </svg>
-                                        <span>Cetak PDF</span>
-                                    </div>
-                                </button>
-                                <button id="refreshReportsBtn" class="btn-primary px-4 py-2 rounded-md text-sm">
-                                    <div class="flex items-center space-x-2">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                        </svg>
-                                        <span>Refresh</span>
-                                    </div>
-                                </button>
+                    </div>
+
+                    <div class="topbar-right">
+                        <div class="user-chip">
+                            <div id="userAvatar" class="avatar">B</div>
+                            <div class="user-chip-text">
+                                <span class="user-chip-name" id="userInfo">-</span>
+                                <span class="user-chip-role" id="userRoleLabel">-</span>
                             </div>
                         </div>
+                        <button id="logoutBtn" class="btn btn-secondary">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                            <span>Keluar</span>
+                        </button>
                     </div>
+                </header>
 
-                    <!-- Reports Table -->
-                    <div class="bg-white rounded-lg shadow overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pegawai</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tujuan Perjalanan Dinas</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="reportsTableBody" class="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">Memuat data...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                <main class="content">
+                    <!-- ================= BERANDA ================= -->
+                    <section id="overviewView" class="view">
+                        <div class="hero">
+                            <div class="hero-inner">
+                                <div>
+                                    <span class="hero-eyebrow">
+                                        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                        <span id="todayText">Agenda hari ini</span>
+                                    </span>
+                                    <h2 id="greetingText">Selamat datang</h2>
+                                    <p>Pantau agenda pengawasan lapangan lewat kalender. Tanggal yang sudah dipakai akan ditandai agar tidak terjadi entri ganda.</p>
+                                </div>
+                                <div class="hero-actions">
+                                    <button id="homeCreateBtn" class="btn btn-light pegawai-only hidden">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        Buat Laporan
+                                    </button>
+                                    <button id="homeViewReportsBtn" class="btn btn-glass">
+                                        Lihat Semua Laporan
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Create Report View -->
-                <div id="create-reportView" class="view hidden">
-                    <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Buat Laporan Pengawasan Baru</h2>
-                        <p class="text-gray-600">Isi form berikut untuk membuat laporan kegiatan pengawasan lapangan</p>
-                    </div>
+                        <div class="stats-grid">
+                            <div class="card stat-card">
+                                <div class="stat-icon indigo">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                </div>
+                                <div class="stat-meta">
+                                    <div class="stat-label">Total Laporan</div>
+                                    <p id="totalReports" class="stat-value">-</p>
+                                </div>
+                            </div>
 
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <form id="createReportForm" enctype="multipart/form-data" class="space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="form-group">
-                                    <label for="activityType" class="block text-sm font-medium text-gray-700 mb-2">Jenis Kegiatan</label>
-                                    <select id="activityType" name="activity_type_id" required
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="">Pilih Jenis Kegiatan</option>
+                            <div class="card stat-card">
+                                <div class="stat-icon green">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </div>
+                                <div class="stat-meta">
+                                    <div class="stat-label">Laporan Bulan Ini</div>
+                                    <p id="monthlyReports" class="stat-value">-</p>
+                                </div>
+                            </div>
+
+                            <div class="card stat-card">
+                                <div class="stat-icon amber">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </div>
+                                <div class="stat-meta">
+                                    <div class="stat-label">Hari Terpakai</div>
+                                    <p id="usedDays" class="stat-value">-</p>
+                                </div>
+                            </div>
+
+                            <div class="card stat-card kepala-only hidden">
+                                <div class="stat-icon rose">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                </div>
+                                <div class="stat-meta">
+                                    <div class="stat-label">Pegawai Aktif</div>
+                                    <p id="activePegawai" class="stat-value">-</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="home-grid">
+                            <!-- Calendar -->
+                            <div class="card">
+                                <div class="card-head">
+                                    <div>
+                                        <h3 class="card-title">Kalender Pengawasan</h3>
+                                        <p class="card-sub" id="calendarMonthSummary">Agenda perjalanan dinas per tanggal</p>
+                                    </div>
+                                    <div class="calendar-toolbar">
+                                        <div class="calendar-nav">
+                                            <button id="calendarPrev" class="icon-btn" aria-label="Bulan sebelumnya">
+                                                <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                            </button>
+                                            <button id="calendarToday" class="btn btn-secondary" style="padding:8px 10px;font-size:11px;">Hari ini</button>
+                                            <button id="calendarNext" class="icon-btn" aria-label="Bulan berikutnya">
+                                                <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div id="calendarMonthLabel" class="calendar-month" style="text-align:left;">-</div>
+                                    <div class="calendar-weekdays">
+                                        <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span>
+                                    </div>
+                                    <div id="calendarGrid" class="calendar-grid"></div>
+                                    <div class="calendar-legend">
+                                        <span class="legend-item"><span class="legend-dot"></span> Ada laporan</span>
+                                        <span class="legend-item"><span class="legend-box"></span> Hari ini</span>
+                                        <span class="legend-item" style="color:#94a3b8;">Klik tanggal untuk melihat detail</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Selected date panel -->
+                            <div class="card day-panel">
+                                <div class="day-panel-head">
+                                    <h3 id="calendarSelectedDate" class="day-panel-date">Pilih tanggal</h3>
+                                    <p id="calendarSelectedMeta" class="day-panel-meta">Detail laporan pada tanggal terpilih</p>
+                                </div>
+                                <div id="calendarDayReports" class="day-list"></div>
+                                <div id="calendarDayAction" class="day-panel-foot"></div>
+                            </div>
+                        </div>
+
+                        <!-- Recent reports -->
+                        <div class="card">
+                            <div class="card-head">
+                                <div>
+                                    <h3 class="card-title">Laporan Terbaru</h3>
+                                    <p class="card-sub">Aktivitas pengawasan yang baru saja dicatat</p>
+                                </div>
+                                <button id="recentViewAllBtn" class="btn btn-ghost" style="padding:8px 12px;">Lihat semua</button>
+                            </div>
+                            <div id="recentReportsTable"></div>
+                        </div>
+                    </section>
+
+                    <!-- ================= LAPORAN ================= -->
+                    <section id="reportsView" class="view hidden">
+                        <div class="page-head">
+                            <div>
+                                <h2 class="page-title">Laporan Pengawasan</h2>
+                                <p class="page-sub">Kelola semua laporan perjalanan dinas pengawasan lapangan.</p>
+                            </div>
+                            <div class="toolbar">
+                                <button id="exportExcelBtn" class="btn btn-success kepala-only hidden">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    Excel
+                                </button>
+                                <button id="printAllReportsBtn" class="btn btn-secondary kepala-only hidden">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H3a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                                    Cetak PDF
+                                </button>
+                                <button id="newReportTopBtn" class="btn btn-primary pegawai-only hidden">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                    Laporan Baru
+                                </button>
+                                <button id="refreshReportsBtn" class="btn btn-secondary">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-head">
+                                <div class="toolbar" style="width:100%;">
+                                    <div class="search-box" style="flex:1;">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
+                                        <input type="text" id="searchReports" class="input" placeholder="Cari tujuan, pegawai, atau aktivitas...">
+                                    </div>
+                                    <select id="filterByMonth" class="input select-compact">
+                                        <option value="">Semua Bulan</option>
+                                        <option value="01">Januari</option>
+                                        <option value="02">Februari</option>
+                                        <option value="03">Maret</option>
+                                        <option value="04">April</option>
+                                        <option value="05">Mei</option>
+                                        <option value="06">Juni</option>
+                                        <option value="07">Juli</option>
+                                        <option value="08">Agustus</option>
+                                        <option value="09">September</option>
+                                        <option value="10">Oktober</option>
+                                        <option value="11">November</option>
+                                        <option value="12">Desember</option>
                                     </select>
                                 </div>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Pegawai</th>
+                                            <th>Tujuan Perjalanan Dinas</th>
+                                            <th>Tanggal</th>
+                                            <th>Status</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportsTableBody">
+                                        <tr><td colspan="5" class="empty-row">Memuat data...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
 
-                                <div class="form-group">
-                                    <label for="nomorSuratTugas" class="block text-sm font-medium text-gray-700 mb-2">Nomor Surat Tugas *</label>
-                                    <input type="text" id="nomorSuratTugas" name="nomor_surat_tugas" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                           placeholder="Contoh: B-123/3523/vs.330/7/2025">
+                    <!-- ================= BUAT LAPORAN ================= -->
+                    <section id="create-reportView" class="view hidden">
+                        <div class="page-head">
+                            <div>
+                                <h2 class="page-title">Buat Laporan Pengawasan</h2>
+                                <p class="page-sub">Isi detail kegiatan pengawasan lapangan. Satu tanggal hanya untuk satu laporan.</p>
+                            </div>
+                            <span class="badge badge-primary">Formulir baru</span>
+                        </div>
+
+                        <div class="card form-card">
+                            <form id="createReportForm" enctype="multipart/form-data">
+                                <div class="form-grid">
+                                    <div class="form-field">
+                                        <label for="activityType" class="label">Jenis Kegiatan</label>
+                                        <select id="activityType" name="activity_type_id" required class="select">
+                                            <option value="">Pilih Jenis Kegiatan</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-field">
+                                        <label for="nomorSuratTugas" class="label">Nomor Surat Tugas</label>
+                                        <input type="text" id="nomorSuratTugas" name="nomor_surat_tugas" class="input" placeholder="Contoh: B-123/3523/vs.330/7/2025">
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="kegiatanPengawasan" class="label">Tujuan Perjalanan Dinas <span class="req">*</span></label>
+                                        <input type="text" id="kegiatanPengawasan" name="tujuan_perjalanan_dinas" required class="input" placeholder="Contoh: Desa Ngino Kecamatan Semanding">
+                                    </div>
+
+                                    <div class="form-field">
+                                        <label for="tanggalPelaksanaan" class="label">Tanggal Pelaksanaan <span class="req">*</span></label>
+                                        <input type="date" id="tanggalPelaksanaan" name="tanggal_pelaksanaan" required class="input">
+                                        <div id="createDateStatus" class="date-status hidden"></div>
+                                        <p class="form-hint">Tanggal yang sudah memiliki laporan akan otomatis diblokir.</p>
+                                    </div>
+
+                                    <div class="form-field">
+                                        <label class="label">Catatan</label>
+                                        <div class="date-status ok" style="align-items:center;">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span>Pastikan tanggal belum dipakai agar laporan tidak tertolak sistem.</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="aktivitas" class="label">Aktivitas yang Dilakukan <span class="req">*</span></label>
+                                        <textarea id="aktivitas" name="aktivitas" rows="4" required class="textarea" placeholder="Jelaskan secara detail aktivitas yang dilakukan selama pengawasan..."></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="permasalahan" class="label">Permasalahan yang Ditemui <span class="req">*</span></label>
+                                        <textarea id="permasalahan" name="permasalahan" rows="3" required class="textarea" placeholder="Jelaskan permasalahan yang ditemui..."></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="petugasResponden" class="label">Petugas/Responden yang Ditemui <span class="req">*</span></label>
+                                        <textarea id="petugasResponden" name="petugas_responden" rows="2" required class="textarea" placeholder="Sebutkan nama responden..."></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="solusiAntisipasi" class="label">Solusi/Langkah Antisipatif <span class="req">*</span></label>
+                                        <textarea id="solusiAntisipasi" name="solusi_antisipasi" rows="3" required class="textarea" placeholder="Jelaskan solusi yang telah dilakukan atau langkah antisipatif..."></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="fotoDokumentasi" class="label">Upload Foto Dokumentasi <span class="req">*</span></label>
+                                        <input type="file" id="fotoDokumentasi" name="foto_dokumentasi[]" multiple accept=".jpg,.jpeg,.png" required>
+                                        <p class="form-hint">Format JPG/PNG. Maksimal 6 foto, 20MB per foto.</p>
+                                    </div>
                                 </div>
 
-                                <div class="form-group">
-                                    <label for="kegiatanPengawasan" class="block text-sm font-medium text-gray-700 mb-2">Tujuan Perjalanan Dinas *</label>
-                                    <input type="text" id="kegiatanPengawasan" name="tujuan_perjalanan_dinas" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                           placeholder="Contoh: Desa Ngino Kecamatan Semanding">
+                                <div class="form-actions">
+                                    <button type="button" id="cancelCreateBtn" class="btn btn-secondary">Batal</button>
+                                    <button type="submit" id="createReportSubmitBtn" class="btn btn-primary">Simpan Laporan</button>
                                 </div>
-                            </div>
+                            </form>
+                        </div>
+                    </section>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="form-group">
-                                    <label for="tanggalPelaksanaan" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Pelaksanaan *</label>
-                                    <input type="date" id="tanggalPelaksanaan" name="tanggal_pelaksanaan" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <!-- ================= EDIT LAPORAN ================= -->
+                    <section id="edit-reportView" class="view hidden">
+                        <div class="page-head">
+                            <div>
+                                <h2 class="page-title">Edit Laporan Pengawasan</h2>
+                                <p class="page-sub">Perbarui informasi laporan tanpa mengubah tanggal yang sudah tersimpan.</p>
+                            </div>
+                            <span class="badge badge-warning">Mode edit</span>
+                        </div>
+
+                        <div class="card form-card">
+                            <form id="editReportForm" enctype="multipart/form-data">
+                                <input type="hidden" id="editReportId" name="reportId">
+
+                                <div class="form-grid">
+                                    <div class="form-field">
+                                        <label for="editActivityType" class="label">Jenis Kegiatan</label>
+                                        <select id="editActivityType" name="activity_type_id" required class="select">
+                                            <option value="">Pilih Jenis Kegiatan</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-field">
+                                        <label for="editNomorSuratTugas" class="label">Nomor Surat Tugas</label>
+                                        <input type="text" id="editNomorSuratTugas" name="nomor_surat_tugas" class="input">
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="editKegiatanPengawasan" class="label">Tujuan Perjalanan Dinas <span class="req">*</span></label>
+                                        <input type="text" id="editKegiatanPengawasan" name="tujuan_perjalanan_dinas" required class="input">
+                                    </div>
+
+                                    <div class="form-field">
+                                        <label for="editTanggalPelaksanaan" class="label">Tanggal Pelaksanaan <span class="req">*</span></label>
+                                        <input type="date" id="editTanggalPelaksanaan" name="tanggal_pelaksanaan" required class="input">
+                                        <div id="editDateStatus" class="date-status hidden"></div>
+                                        <p class="form-hint">Tanggal tetap mengikuti data tersimpan. Ubah hanya jika perlu.</p>
+                                    </div>
+
+                                    <div class="form-field">
+                                        <label class="label">Status Jadwal</label>
+                                        <div class="date-status ok" style="align-items:center;">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span>Tanggal laporan ini tidak akan berubah kecuali Anda mengubahnya sendiri.</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="editAktivitas" class="label">Aktivitas yang Dilakukan <span class="req">*</span></label>
+                                        <textarea id="editAktivitas" name="aktivitas" rows="4" required class="textarea"></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="editPermasalahan" class="label">Permasalahan yang Ditemui <span class="req">*</span></label>
+                                        <textarea id="editPermasalahan" name="permasalahan" rows="3" required class="textarea"></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="editPetugasResponden" class="label">Petugas/Responden yang Ditemui <span class="req">*</span></label>
+                                        <textarea id="editPetugasResponden" name="petugas_responden" rows="2" required class="textarea"></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="editSolusiAntisipasi" class="label">Solusi/Langkah Antisipatif <span class="req">*</span></label>
+                                        <textarea id="editSolusiAntisipasi" name="solusi_antisipasi" rows="3" required class="textarea"></textarea>
+                                    </div>
+
+                                    <div class="form-field full">
+                                        <label for="editFotoDokumentasi" class="label">Upload Foto Dokumentasi Baru</label>
+                                        <input type="file" id="editFotoDokumentasi" name="foto_dokumentasi[]" multiple accept=".jpg,.jpeg,.png">
+                                        <p class="form-hint">Kosongkan jika tidak ingin mengubah foto. Maksimal 20MB per foto.</p>
+                                        <div id="currentFotoDokumentasi" class="current-photo"></div>
+                                    </div>
                                 </div>
 
+                                <div class="form-actions">
+                                    <button type="button" id="cancelEditBtn" class="btn btn-secondary">Batal</button>
+                                    <button type="submit" id="editReportSubmitBtn" class="btn btn-primary">Update Laporan</button>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+
+                    <!-- ================= USER ================= -->
+                    <section id="usersView" class="view hidden">
+                        <div class="page-head">
+                            <div>
+                                <h2 class="page-title">Manajemen User</h2>
+                                <p class="page-sub">Kelola akun pengguna dan hak akses sistem.</p>
                             </div>
-
-                            <div class="form-group">
-                                <label for="aktivitas" class="block text-sm font-medium text-gray-700 mb-2">Aktivitas yang Dilakukan *</label>
-                                <textarea id="aktivitas" name="aktivitas" rows="4" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder="Jelaskan secara detail aktivitas yang dilakukan selama pengawasan..."></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="permasalahan" class="block text-sm font-medium text-gray-700 mb-2">Permasalahan yang Ditemui *</label>
-                                <textarea id="permasalahan" name="permasalahan" rows="3" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder="Jelaskan permasalahan yang ditemui..."></textarea>
-                            </div>
-
-
-                            <div class="form-group">
-                                <label for="petugasResponden" class="block text-sm font-medium text-gray-700 mb-2">Petugas/Responden yang Ditemui *</label>
-                                <textarea id="petugasResponden" name="petugas_responden" rows="2" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder="Sebutkan nama Responden..."></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="solusiAntisipasi" class="block text-sm font-medium text-gray-700 mb-2">Solusi/Langkah Antisipatif *</label>
-                                <textarea id="solusiAntisipasi" name="solusi_antisipasi" rows="3" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder="Jelaskan solusi yang telah dilakukan atau langkah antisipatif..."></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="fotoDokumentasi" class="block text-sm font-medium text-gray-700 mb-2">Upload Foto Dokumentasi *</label>
-                                <input type="file" id="fotoDokumentasi" name="foto_dokumentasi[]" multiple accept=".jpg,.jpeg,.png" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <p class="text-sm text-gray-500 mt-1">Format: JPG, PNG (Max: 6 foto, 20MB per foto)</p>
-                            </div>
-
-                            <div class="flex justify-end space-x-4 pt-4">
-                                <button type="button" id="cancelCreateBtn" class="btn-secondary px-6 py-3 rounded-md">
-                                    Batal
+                            <div class="toolbar">
+                                <button id="downloadUsersTemplateBtn" class="btn btn-secondary">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    Template
                                 </button>
-                                <button type="submit" class="btn-primary px-6 py-3 rounded-md">
-                                    Simpan Laporan
+                                <button id="uploadUsersBtn" class="btn btn-success">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                    Upload
+                                </button>
+                                <button id="addUserBtn" class="btn btn-primary">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                    Tambah User
                                 </button>
                             </div>
-                        </form>
-                    </div>
-                </div>
+                        </div>
 
-                <!-- Edit Report View -->
-                <div id="edit-reportView" class="view hidden">
-                    <div class="mb-6">
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Edit Laporan Pengawasan</h2>
-                        <p class="text-gray-600">Perbarui informasi laporan kegiatan pengawasan lapangan</p>
-                    </div>
-
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <form id="editReportForm" enctype="multipart/form-data" class="space-y-6">
-                            <input type="hidden" id="editReportId" name="reportId">
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="form-group">
-                                    <label for="editActivityType" class="block text-sm font-medium text-gray-700 mb-2">Jenis Kegiatan</label>
-                                    <select id="editActivityType" name="activity_type_id" required
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="">Pilih Jenis Kegiatan</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="editNomorSuratTugas" class="block text-sm font-medium text-gray-700 mb-2">Nomor Surat Tugas</label>
-                                    <input type="text" id="editNomorSuratTugas" name="nomor_surat_tugas"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="editKegiatanPengawasan" class="block text-sm font-medium text-gray-700 mb-2">Tujuan Perjalanan Dinas *</label>
-                                    <input type="text" id="editKegiatanPengawasan" name="tujuan_perjalanan_dinas" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
+                        <div class="card">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Nama</th>
+                                            <th>Role</th>
+                                            <th>Dibuat</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody">
+                                        <tr><td colspan="5" class="empty-row">Memuat data...</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
+                        </div>
+                    </section>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="form-group">
-                                    <label for="editTanggalPelaksanaan" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Pelaksanaan *</label>
-                                    <input type="date" id="editTanggalPelaksanaan" name="tanggal_pelaksanaan" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                </div>
-
+                    <!-- ================= JENIS KEGIATAN ================= -->
+                    <section id="activity-typesView" class="view hidden">
+                        <div class="page-head">
+                            <div>
+                                <h2 class="page-title">Jenis Kegiatan</h2>
+                                <p class="page-sub">Kelola kategori kegiatan pengawasan lapangan.</p>
                             </div>
-
-                            <div class="form-group">
-                                <label for="editAktivitas" class="block text-sm font-medium text-gray-700 mb-2">Aktivitas yang Dilakukan *</label>
-                                <textarea id="editAktivitas" name="aktivitas" rows="4" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="editPermasalahan" class="block text-sm font-medium text-gray-700 mb-2">Permasalahan yang Ditemui *</label>
-                                <textarea id="editPermasalahan" name="permasalahan" rows="3" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            </div>
-
-
-                            <div class="form-group">
-                                <label for="editPetugasResponden" class="block text-sm font-medium text-gray-700 mb-2">Petugas/Responden yang Ditemui *</label>
-                                <textarea id="editPetugasResponden" name="petugas_responden" rows="2" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="editSolusiAntisipasi" class="block text-sm font-medium text-gray-700 mb-2">Solusi/Langkah Antisipatif *</label>
-                                <textarea id="editSolusiAntisipasi" name="solusi_antisipasi" rows="3" required
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="editFotoDokumentasi" class="block text-sm font-medium text-gray-700 mb-2">Upload Foto Dokumentasi Baru</label>
-                                <input type="file" id="editFotoDokumentasi" name="foto_dokumentasi[]" multiple accept=".jpg,.jpeg,.png"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <p class="text-sm text-gray-500 mt-1">Kosongkan jika tidak ingin mengubah foto (maks 20MB per foto)</p>
-                                <div id="currentFotoDokumentasi" class="mt-2 text-sm text-blue-600"></div>
-                            </div>
-
-                            <div class="flex justify-end space-x-4 pt-4">
-                                <button type="button" id="cancelEditBtn" class="btn-secondary px-6 py-3 rounded-md">
-                                    Batal
+                            <div class="toolbar">
+                                <button id="downloadActivityTypesTemplateBtn" class="btn btn-secondary kepala-only hidden">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    Template
                                 </button>
-                                <button type="submit" class="btn-primary px-6 py-3 rounded-md">
-                                    Update Laporan
+                                <button id="uploadActivityTypesBtn" class="btn btn-success kepala-only hidden">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                    Upload
+                                </button>
+                                <button id="addActivityTypeBtn" class="btn btn-primary">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                    Tambah Jenis
                                 </button>
                             </div>
-                        </form>
-                    </div>
-                </div>
+                        </div>
 
-                <!-- Users Management View -->
-                <div id="usersView" class="view hidden">
-                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Manajemen User</h2>
-                            <p class="text-gray-600">Kelola akun pengguna sistem</p>
+                        <div class="card">
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nama</th>
+                                            <th>Deskripsi</th>
+                                            <th>Dibuat</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activityTypesTableBody">
+                                        <tr><td colspan="4" class="empty-row">Memuat data...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="flex space-x-2 header-actions" style="flex-wrap: wrap; gap: .5rem; width: 100%; justify-content: center;">
-                            <button id="downloadUsersTemplateBtn" class="btn-secondary px-4 py-2 rounded-md">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v6a2 2 0 002 2zm1 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H8a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
-                                    </svg>
-                                    <span>Download Template</span>
-                                </div>
-                            </button>
-                            <button id="uploadUsersBtn" class="btn-success px-4 py-2 rounded-md">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                                    </svg>
-                                    <span>Upload Users</span>
-                                </div>
-                            </button>
-                            <button id="addUserBtn" class="btn-primary px-4 py-2 rounded-md">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                    </svg>
-                                    <span>Tambah User</span>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-
-
-                    <div class="bg-white rounded-lg shadow overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dibuat</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">Memuat data...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Activity Types Management View -->
-                <div id="activity-typesView" class="view hidden">
-                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Jenis Kegiatan</h2>
-                            <p class="text-gray-600">Kelola jenis kegiatan pengawasan</p>
-                        </div>
-                        <div class="flex space-x-2 header-actions" style="flex-wrap: wrap; gap: .5rem; width: 100%; justify-content: center;">
-                            <button id="downloadActivityTypesTemplateBtn" class="btn-secondary px-4 py-2 rounded-md kepala-only hidden">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10a2 2 0 002-2V7a2 2 0 00-2-2H8a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
-                                    </svg>
-                                    <span>Download Template</span>
-                                </div>
-                            </button>
-                            <button id="uploadActivityTypesBtn" class="btn-success px-4 py-2 rounded-md kepala-only hidden">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                                    </svg>
-                                    <span>Upload Jenis Kegiatan</span>
-                                </div>
-                            </button>
-                            <button id="addActivityTypeBtn" class="btn-primary px-4 py-2 rounded-md">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                    </svg>
-                                    <span>Tambah Jenis Kegiatan</span>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-lg shadow overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dibuat</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="activityTypesTableBody" class="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">Memuat data...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </main>
+                    </section>
+                </main>
+            </div>
         </div>
     </div>
 
-    <!-- Report Detail Modal -->
-    <div id="reportDetailModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-screen overflow-y-auto">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Detail Laporan Perjalanan Dinas</h3>
-                <button id="closeDetailModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+    <!-- ================= DETAIL MODAL ================= -->
+    <div id="reportDetailModal" class="modal hidden">
+        <div class="modal-card wide">
+            <div class="modal-head">
+                <h3 class="modal-title">Detail Laporan Perjalanan Dinas</h3>
+                <button id="closeDetailModal" class="modal-close" aria-label="Tutup">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div id="reportDetailContent" class="p-6">
-                <!-- Content will be loaded here -->
-            </div>
+            <div id="reportDetailContent" class="modal-body"></div>
         </div>
     </div>
 
-    <!-- User Form Modal -->
-    <div id="userFormModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 id="userFormTitle" class="text-lg font-medium text-gray-900">Tambah User</h3>
-                <button id="closeUserFormModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+    <!-- ================= USER FORM MODAL ================= -->
+    <div id="userFormModal" class="modal hidden">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 id="userFormTitle" class="modal-title">Tambah User</h3>
+                <button id="closeUserFormModal" class="modal-close" aria-label="Tutup">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="p-6">
-                <form id="userForm" class="space-y-4">
+            <div class="modal-body">
+                <form id="userForm">
                     <input type="hidden" id="userId" name="userId">
-                    
-                    <div>
-                        <label for="userUsername" class="block text-sm font-medium text-gray-700 mb-2">Username *</label>
-                        <input type="text" id="userUsername" name="username" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="form-field" style="margin-bottom:14px;">
+                        <label for="userUsername" class="label">Username <span class="req">*</span></label>
+                        <input type="text" id="userUsername" name="username" required class="input">
                     </div>
-
-                    <div>
-                        <label for="userPassword" class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-                        <input type="password" id="userPassword" name="password" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p id="passwordHint" class="text-sm text-gray-500 mt-1">Kosongkan jika tidak ingin mengubah password</p>
+                    <div class="form-field" style="margin-bottom:14px;">
+                        <label for="userPassword" class="label">Password <span class="req">*</span></label>
+                        <input type="password" id="userPassword" name="password" required class="input">
+                        <p id="passwordHint" class="form-hint">Kosongkan jika tidak ingin mengubah password.</p>
                     </div>
-
-                    <div>
-                        <label for="userName" class="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
-                        <input type="text" id="userName" name="name" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="form-field" style="margin-bottom:14px;">
+                        <label for="userName" class="label">Nama Lengkap <span class="req">*</span></label>
+                        <input type="text" id="userName" name="name" required class="input">
                     </div>
-
-                    <div>
-                        <label for="userRole" class="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-                        <select id="userRole" name="role" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="form-field" style="margin-bottom:14px;">
+                        <label for="userRole" class="label">Role <span class="req">*</span></label>
+                        <select id="userRole" name="role" required class="select">
                             <option value="">Pilih Role</option>
                             <option value="pegawai">Pegawai</option>
                             <option value="kepala">Kepala</option>
                         </select>
                     </div>
-
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <button type="button" id="cancelUserBtn" class="btn-secondary px-4 py-2 rounded-md">
-                            Batal
-                        </button>
-                        <button type="submit" class="btn-primary px-4 py-2 rounded-md">
-                            Simpan
-                        </button>
+                    <div class="form-actions">
+                        <button type="button" id="cancelUserBtn" class="btn btn-secondary">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Activity Type Form Modal -->
-    <div id="activityTypeFormModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 id="activityTypeFormTitle" class="text-lg font-medium text-gray-900">Tambah Jenis Kegiatan</h3>
-                <button id="closeActivityTypeFormModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+    <!-- ================= ACTIVITY TYPE FORM MODAL ================= -->
+    <div id="activityTypeFormModal" class="modal hidden">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 id="activityTypeFormTitle" class="modal-title">Tambah Jenis Kegiatan</h3>
+                <button id="closeActivityTypeFormModal" class="modal-close" aria-label="Tutup">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="p-6">
-                <form id="activityTypeForm" class="space-y-4">
+            <div class="modal-body">
+                <form id="activityTypeForm">
                     <input type="hidden" id="activityTypeId" name="activityTypeId">
-                    
-                    <div>
-                        <label for="activityTypeName" class="block text-sm font-medium text-gray-700 mb-2">Nama Jenis Kegiatan *</label>
-                        <input type="text" id="activityTypeName" name="name" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="form-field" style="margin-bottom:14px;">
+                        <label for="activityTypeName" class="label">Nama Jenis Kegiatan <span class="req">*</span></label>
+                        <input type="text" id="activityTypeName" name="name" required class="input">
                     </div>
-
-                    <div>
-                        <label for="activityTypeDescription" class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
-                        <textarea id="activityTypeDescription" name="description" rows="3"
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    <div class="form-field" style="margin-bottom:14px;">
+                        <label for="activityTypeDescription" class="label">Deskripsi</label>
+                        <textarea id="activityTypeDescription" name="description" rows="3" class="textarea"></textarea>
                     </div>
-
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <button type="button" id="cancelActivityTypeBtn" class="btn-secondary px-4 py-2 rounded-md">
-                            Batal
-                        </button>
-                        <button type="submit" class="btn-primary px-4 py-2 rounded-md">
-                            Simpan
-                        </button>
+                    <div class="form-actions">
+                        <button type="button" id="cancelActivityTypeBtn" class="btn btn-secondary">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
-    <div id="deleteConfirmModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="p-6">
-                <div class="flex items-center mb-4">
-                    <div class="p-3 rounded-full bg-red-100 mr-4">
-                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                        </svg>
+    <!-- ================= DELETE CONFIRM MODAL ================= -->
+    <div id="deleteConfirmModal" class="modal hidden">
+        <div class="modal-card">
+            <div class="modal-body">
+                <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:20px;">
+                    <div style="width:44px;height:44px;flex:0 0 auto;border-radius:14px;background:var(--danger-soft);display:grid;place-items:center;color:var(--danger);">
+                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
                     </div>
                     <div>
-                        <h3 class="text-lg font-medium text-gray-900">Konfirmasi Hapus</h3>
-                        <p id="deleteConfirmMessage" class="text-gray-600 mt-1">Apakah Anda yakin ingin menghapus item ini?</p>
+                        <h3 class="modal-title">Konfirmasi Hapus</h3>
+                        <p id="deleteConfirmMessage" style="margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.6;">Apakah Anda yakin ingin menghapus item ini?</p>
                     </div>
                 </div>
-                <div class="flex justify-end space-x-4">
-                    <button id="cancelDeleteBtn" class="btn-secondary px-4 py-2 rounded-md">
-                        Batal
-                    </button>
-                    <button id="confirmDeleteBtn" class="btn-danger px-4 py-2 rounded-md">
-                        Hapus
-                    </button>
+                <div class="form-actions" style="padding-top:16px;">
+                    <button id="cancelDeleteBtn" class="btn btn-secondary">Batal</button>
+                    <button id="confirmDeleteBtn" class="btn btn-danger">Hapus</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Upload Activity Types Modal -->
-    <div id="uploadActivityTypesModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Upload Jenis Kegiatan</h3>
-                <button id="closeUploadActivityTypesModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+    <!-- ================= UPLOAD ACTIVITY TYPES ================= -->
+    <div id="uploadActivityTypesModal" class="modal hidden">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 class="modal-title">Upload Jenis Kegiatan</h3>
+                <button id="closeUploadActivityTypesModal" class="modal-close" aria-label="Tutup">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="p-6">
-                <form id="uploadActivityTypesForm" class="space-y-4">
-                    <div>
-                        <label for="activityTypesFile" class="block text-sm font-medium text-gray-700 mb-2">Pilih File Excel (.xlsx)</label>
-                        <input type="file" id="activityTypesFile" name="activityTypesFile" required accept=".xlsx"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-sm text-gray-500 mt-1">Header wajib: name, description</p>
+            <div class="modal-body">
+                <form id="uploadActivityTypesForm">
+                    <div class="form-field">
+                        <label for="activityTypesFile" class="label">Pilih File Excel (.xlsx)</label>
+                        <input type="file" id="activityTypesFile" name="activityTypesFile" required accept=".xlsx">
+                        <p class="form-hint">Header wajib: name, description.</p>
                     </div>
- 
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <button type="button" id="cancelUploadActivityTypesBtn" class="btn-secondary px-4 py-2 rounded-md">
-                            Batal
-                        </button>
-                        <button type="submit" class="btn-primary px-4 py-2 rounded-md">
-                            Upload
-                        </button>
+                    <div class="form-actions">
+                        <button type="button" id="cancelUploadActivityTypesBtn" class="btn btn-secondary">Batal</button>
+                        <button type="submit" class="btn btn-primary">Upload</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Upload Users Modal -->
-    <div id="uploadUsersModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Upload Users (Excel)</h3>
-                <button id="closeUploadUsersModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+    <!-- ================= UPLOAD USERS ================= -->
+    <div id="uploadUsersModal" class="modal hidden">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 class="modal-title">Upload Users (Excel)</h3>
+                <button id="closeUploadUsersModal" class="modal-close" aria-label="Tutup">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="p-6">
-                <form id="uploadUsersForm" class="space-y-4">
-                    <div>
-                        <label for="usersFile" class="block text-sm font-medium text-gray-700 mb-2">Pilih File Excel (.xlsx)</label>
-                        <input type="file" id="usersFile" name="usersFile" required accept=".xlsx"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-sm text-gray-500 mt-1">Header wajib: username, password, name, role</p>
+            <div class="modal-body">
+                <form id="uploadUsersForm">
+                    <div class="form-field">
+                        <label for="usersFile" class="label">Pilih File Excel (.xlsx)</label>
+                        <input type="file" id="usersFile" name="usersFile" required accept=".xlsx">
+                        <p class="form-hint">Header wajib: username, password, name, role.</p>
                     </div>
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <button type="button" id="cancelUploadUsersBtn" class="btn-secondary px-4 py-2 rounded-md">
-                            Batal
-                        </button>
-                        <button type="submit" class="btn-primary px-4 py-2 rounded-md">
-                            Upload
-                        </button>
+                    <div class="form-actions">
+                        <button type="button" id="cancelUploadUsersBtn" class="btn btn-secondary">Batal</button>
+                        <button type="submit" class="btn btn-primary">Upload</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
- 
-    <!-- Success/Error Messages -->
-    <div id="messageContainer" class="fixed top-4 right-4 z-50 space-y-2">
-        <!-- Messages will be added here dynamically -->
-    </div>
 
-    <!-- Include JavaScript -->
+    <!-- Toast -->
+    <div id="messageContainer"></div>
+
     <script src="app.js"></script>
 </body>
 </html>

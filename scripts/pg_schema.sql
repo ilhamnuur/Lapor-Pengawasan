@@ -58,6 +58,7 @@ CREATE TABLE report_photos (
 CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_activity_type_id ON reports(activity_type_id);
 CREATE INDEX IF NOT EXISTS idx_reports_tanggal ON reports(tanggal_pelaksanaan);
+CREATE INDEX IF NOT EXISTS idx_reports_user_tanggal ON reports(user_id, tanggal_pelaksanaan);
 CREATE INDEX IF NOT EXISTS idx_photos_report_id ON report_photos(report_id);
 
 -- Seed minimal data if empty

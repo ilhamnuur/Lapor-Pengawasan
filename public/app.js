@@ -8,8 +8,24 @@ let deleteItemId = null;
 let deleteItemType = null;
 let filteredReports = [];
 
+// Calendar state
+let calendarMonth = startOfMonth(new Date());
+let selectedCalendarDate = toISODate(new Date());
+let createDateBlocked = false;
+let editDateBlocked = false;
+let editOriginalDate = '';
+
 // API Base URL
 const API_BASE = '/api';
+
+const VIEW_META = {
+    overview: { title: 'Beranda', subtitle: 'Kalender & ringkasan kegiatan pengawasan' },
+    reports: { title: 'Laporan Pengawasan', subtitle: 'Daftar seluruh laporan perjalanan dinas' },
+    'create-report': { title: 'Buat Laporan', subtitle: 'Catat kegiatan pengawasan baru' },
+    'edit-report': { title: 'Edit Laporan', subtitle: 'Perbarui laporan pengawasan' },
+    users: { title: 'Manajemen User', subtitle: 'Kelola akun dan hak akses' },
+    'activity-types': { title: 'Jenis Kegiatan', subtitle: 'Kelola kategori pengawasan' }
+};
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', function() {
@@ -220,16 +236,40 @@ function setupEventListeners() {
         filterByMonth.addEventListener('change', filterReports);
     }
     
-    // Auto-fill day when date is selected
+    // Auto-fill day when date is selected + validasi tanggal terpakai
     const tanggalPelaksanaan = document.getElementById('tanggalPelaksanaan');
     if (tanggalPelaksanaan) {
-        tanggalPelaksanaan.addEventListener('change', autoFillDay);
+        tanggalPelaksanaan.addEventListener('change', () => {
+            autoFillDay();
+            validateCreateDate();
+        });
     }
     
     const editTanggalPelaksanaan = document.getElementById('editTanggalPelaksanaan');
     if (editTanggalPelaksanaan) {
-        editTanggalPelaksanaan.addEventListener('change', autoFillEditDay);
+        editTanggalPelaksanaan.addEventListener('change', () => {
+            autoFillEditDay();
+            validateEditDate();
+        });
     }
+
+    // Calendar controls
+    const calendarPrev = document.getElementById('calendarPrev');
+    if (calendarPrev) calendarPrev.addEventListener('click', () => changeCalendarMonth(-1));
+    const calendarNext = document.getElementById('calendarNext');
+    if (calendarNext) calendarNext.addEventListener('click', () => changeCalendarMonth(1));
+    const calendarToday = document.getElementById('calendarToday');
+    if (calendarToday) calendarToday.addEventListener('click', goToCalendarToday);
+
+    // Home quick actions
+    const homeCreateBtn = document.getElementById('homeCreateBtn');
+    if (homeCreateBtn) homeCreateBtn.addEventListener('click', () => switchView('create-report'));
+    const homeViewReportsBtn = document.getElementById('homeViewReportsBtn');
+    if (homeViewReportsBtn) homeViewReportsBtn.addEventListener('click', () => switchView('reports'));
+    const recentViewAllBtn = document.getElementById('recentViewAllBtn');
+    if (recentViewAllBtn) recentViewAllBtn.addEventListener('click', () => switchView('reports'));
+    const newReportTopBtn = document.getElementById('newReportTopBtn');
+    if (newReportTopBtn) newReportTopBtn.addEventListener('click', () => switchView('create-report'));
 
     // Event delegation for reports table
     const reportsTableBody = document.getElementById('reportsTableBody');
@@ -307,9 +347,15 @@ function showDashboard() {
 function updateUserInfo() {
     if (currentUser) {
         const userInfo = document.getElementById('userInfo');
-        if (userInfo) {
-            userInfo.textContent = 
-                `${currentUser.name} (${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)})`;
+        const roleLabel = document.getElementById('userRoleLabel');
+        const avatar = document.getElementById('userAvatar');
+        if (userInfo) userInfo.textContent = currentUser.name;
+        if (roleLabel) roleLabel.textContent = currentUser.role === 'kepala' ? 'Kepala' : 'Pegawai';
+        if (avatar) {
+            const initials = String(currentUser.name || 'BPS')
+                .split(/\s+/).filter(Boolean).slice(0, 2)
+                .map(part => part.charAt(0).toUpperCase()).join('');
+            avatar.textContent = initials || 'BPS';
         }
     }
 }
@@ -336,11 +382,20 @@ function switchView(view) {
     
     // Update navigation active state
     document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('bg-blue-100', 'text-blue-600');
+        btn.classList.remove('active');
         if (btn.getAttribute('data-view') === view) {
-            btn.classList.add('bg-blue-100', 'text-blue-600');
+            btn.classList.add('active');
         }
     });
+
+    // Update page heading
+    const meta = VIEW_META[view];
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    if (meta) {
+        if (pageTitle) pageTitle.textContent = meta.title;
+        if (pageSubtitle) pageSubtitle.textContent = meta.subtitle;
+    }
     
     currentView = view;
     
@@ -359,6 +414,9 @@ function switchView(view) {
     } else if (view === 'activity-types') {
         loadActivityTypes();
     }
+
+    // Close mobile menu
+    closeSidebar();
 }
 
 function toggleSidebar() {
@@ -381,13 +439,32 @@ function closeSidebar() {
 
 // Data loading functions
 async function loadOverviewData() {
+    updateGreeting();
     try {
         await loadReports();
-        updateOverviewStats();
-        loadRecentReports();
     } catch (error) {
-        console.error('Error loading overview data:', error);
+        console.error('Error loading reports for overview:', error);
         showMessage('Gagal memuat data ringkasan', 'error');
+    }
+    // Tetap render kalender walau pengambilan data gagal, menggunakan data terakhir yang ada.
+    updateOverviewStats();
+    renderCalendar();
+    renderSelectedDatePanel();
+    loadRecentReports();
+}
+
+function updateGreeting() {
+    const greetingEl = document.getElementById('greetingText');
+    const todayEl = document.getElementById('todayText');
+    const hour = new Date().getHours();
+    const greeting = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam';
+    if (greetingEl) {
+        greetingEl.textContent = `${greeting}, ${currentUser?.name || 'Sahabat BPS'}!`;
+    }
+    if (todayEl) {
+        todayEl.textContent = new Date().toLocaleDateString('id-ID', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
     }
 }
 
@@ -462,20 +539,28 @@ async function loadActivityTypes() {
 }
 
 function updateOverviewStats() {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
     const totalReports = reports.length;
-    const currentMonth = new Date().getMonth();
-    const monthlyReports = reports.filter(report => {
-        const reportMonth = new Date(report.tanggal_pelaksanaan).getMonth();
-        return reportMonth === currentMonth;
-    }).length;
+    const monthReports = reports.filter(report => {
+        const iso = toISODate(report.tanggal_pelaksanaan);
+        if (!iso) return false;
+        const d = parseISODate(iso);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+    const monthlyReports = monthReports.length;
+    const usedDayKeys = new Set(monthReports.map(report => toISODate(report.tanggal_pelaksanaan)).filter(Boolean));
     
     const totalReportsEl = document.getElementById('totalReports');
     const monthlyReportsEl = document.getElementById('monthlyReports');
+    const usedDaysEl = document.getElementById('usedDays');
     
     if (totalReportsEl) totalReportsEl.textContent = totalReports;
     if (monthlyReportsEl) monthlyReportsEl.textContent = monthlyReports;
+    if (usedDaysEl) usedDaysEl.textContent = usedDayKeys.size;
     
-    if (currentUser.role === 'kepala') {
+    if (currentUser?.role === 'kepala') {
         const uniquePegawai = new Set(reports.map(r => r.user_id)).size;
         const activePegawaiEl = document.getElementById('activePegawai');
         if (activePegawaiEl) activePegawaiEl.textContent = uniquePegawai;
@@ -489,34 +574,42 @@ function loadRecentReports() {
     if (!container) return;
     
     if (recentReports.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">Belum ada laporan</p>';
+        container.innerHTML = `
+            <div class="empty-row">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <p>Belum ada laporan pengawasan.</p>
+            </div>
+        `;
         return;
     }
-    
-    const tableHTML = `
-        <div class="overflow-x-auto">
-            <table class="min-w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pegawai</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tujuan Perjalanan Dinas</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    ${recentReports.map(report => `
-                        <tr>
-                            <td class="px-4 py-3 text-sm">${report.pegawai_name}</td>
-                            <td class="px-4 py-3 text-sm">${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</td>
-                            <td class="px-4 py-3 text-sm">${formatDate(report.tanggal_pelaksanaan)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    container.innerHTML = tableHTML;
+
+    container.innerHTML = `<div class="recent-list">${recentReports.map(report => {
+        const iso = toISODate(report.tanggal_pelaksanaan);
+        const date = iso ? parseISODate(iso) : null;
+        const day = date ? date.getDate() : '-';
+        const month = date ? date.toLocaleDateString('id-ID', { month: 'short' }) : '';
+        const tujuan = report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '-';
+        return `
+            <button class="recent-item" data-action="view-detail" data-id="${report.id}" style="border-left:0;border-right:0;border-bottom:0;background:transparent;width:100%;text-align:left;">
+                <div class="date-pill"><strong>${day}</strong><span>${month}</span></div>
+                <div class="recent-main">
+                    <div class="recent-title">${escapeHtml(tujuan)}</div>
+                    <div class="recent-sub">
+                        <span>${escapeHtml(report.pegawai_name || '-')}</span>
+                        <span>•</span>
+                        <span>${escapeHtml(report.hari_pelaksanaan || '')}</span>
+                        ${report.nomor_surat_tugas ? `<span>•</span><span>No. ST: ${escapeHtml(report.nomor_surat_tugas)}</span>` : ''}
+                    </div>
+                </div>
+                <svg class="recent-arrow" width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+        `;
+    }).join('')}</div>`;
+
+    // Recent items open the same detail modal.
+    container.querySelectorAll('[data-action="view-detail"]').forEach(button => {
+        button.addEventListener('click', () => viewReportDetail(button.dataset.id));
+    });
 }
 
 function updateReportsTable() {
@@ -525,51 +618,56 @@ function updateReportsTable() {
     if (!tbody) return;
     
     if (filteredReports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Belum ada laporan</td></tr>';
+        tbody.innerHTML = `
+            <tr><td colspan="5" class="empty-row">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <p>Belum ada laporan yang sesuai.</p>
+            </td></tr>
+        `;
         return;
     }
     
-    tbody.innerHTML = filteredReports.map(report => `
+    tbody.innerHTML = filteredReports.map(report => {
+        const pegawaiName = report.pegawai_name || '-';
+        const initials = pegawaiName.split(/\s+/).filter(Boolean).slice(0, 2)
+            .map(part => part.charAt(0).toUpperCase()).join('');
+        const tujuan = report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '-';
+        return `
         <tr>
-            <td data-label="Pegawai" class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">${report.pegawai_name}</div>
-            </td>
-            <td data-label="Tujuan Perjalanan Dinas" class="px-6 py-4">
-                <div class="text-sm text-gray-900">
-                    ${report.nomor_surat_tugas ? `<div class="text-xs text-gray-600 mb-1">No. ST: ${report.nomor_surat_tugas}</div>` : ''}
-                    <div>${report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan}</div>
+            <td data-label="Pegawai">
+                <div class="cell-person">
+                    <div class="avatar" style="width:32px;height:32px;font-size:10px;">${escapeHtml(initials)}</div>
+                    <div>
+                        <div class="cell-main">${escapeHtml(pegawaiName)}</div>
+                        <div class="cell-sub">Pegawai pengawasan</div>
+                    </div>
                 </div>
             </td>
-            <td data-label="Tanggal" class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">${formatDate(report.tanggal_pelaksanaan)}</div>
-                <div class="text-sm text-gray-500">${report.hari_pelaksanaan}</div>
+            <td data-label="Tujuan">
+                <div class="cell-main" style="white-space:normal;line-height:1.5;">${escapeHtml(tujuan)}</div>
+                ${report.nomor_surat_tugas ? `<div class="cell-sub">No. ST: ${escapeHtml(report.nomor_surat_tugas)}</div>` : ''}
             </td>
-            <td data-label="Status" class="px-6 py-4 whitespace-nowrap">
-                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                    Selesai
-                </span>
+            <td data-label="Tanggal" style="white-space:nowrap;">
+                <div class="cell-main">${formatDate(report.tanggal_pelaksanaan)}</div>
+                <div class="cell-sub">${escapeHtml(report.hari_pelaksanaan || '')}</div>
             </td>
-            <td data-label="Aksi" class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                <button data-action="view-detail" data-id="${report.id}" class="text-blue-600 hover:text-blue-900">
-                    Detail
-                </button>
-                <button data-action="print" data-id="${report.id}" class="text-purple-600 hover:text-purple-900">
-                    Cetak
-                </button>
-                ${canEditReport(report) ? `
-                    <button data-action="edit" data-id="${report.id}" class="text-yellow-600 hover:text-yellow-900">
-                        Edit
-                    </button>
-                    <button data-action="copy" data-id="${report.id}" class="text-green-600 hover:text-green-900">
-                        Copy
-                    </button>
-                    <button data-action="delete" data-id="${Number(report.id)}" class="text-red-600 hover:text-red-900">
-                        Hapus
-                    </button>
-                ` : ''}
+            <td data-label="Status">
+                <span class="badge badge-success">Selesai</span>
+            </td>
+            <td data-label="Aksi">
+                <div class="action-group">
+                    <button data-action="view-detail" data-id="${report.id}" class="action-link" style="color:var(--brand);border-color:#c7d2fe;background:var(--brand-soft);">Detail</button>
+                    <button data-action="print" data-id="${report.id}" class="action-link">Cetak</button>
+                    ${canEditReport(report) ? `
+                        <button data-action="edit" data-id="${report.id}" class="action-link warn">Edit</button>
+                        <button data-action="copy" data-id="${report.id}" class="action-link green">Copy</button>
+                        <button data-action="delete" data-id="${Number(report.id)}" class="action-link danger">Hapus</button>
+                    ` : ''}
+                </div>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function updateUsersTable() {
@@ -578,40 +676,37 @@ function updateUsersTable() {
     if (!tbody) return;
     
     if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Belum ada user</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-row"><p>Belum ada user.</p></td></tr>';
         return;
     }
     
-    tbody.innerHTML = users.map(user => `
+    tbody.innerHTML = users.map(user => {
+        const initials = String(user.name || user.username || '?').split(/\s+/).filter(Boolean).slice(0, 2)
+            .map(part => part.charAt(0).toUpperCase()).join('');
+        return `
         <tr>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">${user.username}</div>
+            <td data-label="Username">
+                <div class="cell-person">
+                    <div class="avatar" style="width:32px;height:32px;font-size:10px;">${escapeHtml(initials)}</div>
+                    <div class="cell-main">${escapeHtml(user.username)}</div>
+                </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">${user.name}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'kepala' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
+            <td data-label="Nama"><div class="cell-main">${escapeHtml(user.name)}</div></td>
+            <td data-label="Role">
+                <span class="badge ${user.role === 'kepala' ? 'badge-primary' : 'badge-success'}">
                     ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                 </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">${formatDate(user.created_at)}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <div class="actions flex flex-wrap gap-2 justify-center sm:justify-start">
-                    <button onclick="editUser(${user.id})" class="text-yellow-600 hover:text-yellow-900 px-2 py-1 rounded border border-yellow-200">
-                        Edit
-                    </button>
-                    ${user.id !== currentUser.id ? `
-                        <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-900 px-2 py-1 rounded border border-red-200">
-                            Hapus
-                        </button>
-                    ` : ''}
+            <td data-label="Dibuat"><div class="cell-sub" style="margin-top:0;">${formatDate(user.created_at)}</div></td>
+            <td data-label="Aksi">
+                <div class="action-group">
+                    <button onclick="editUser(${user.id})" class="action-link warn">Edit</button>
+                    ${user.id !== currentUser.id ? `<button onclick="deleteUser(${user.id})" class="action-link danger">Hapus</button>` : ''}
                 </div>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function updateActivityTypesTable() {
@@ -620,29 +715,19 @@ function updateActivityTypesTable() {
     if (!tbody) return;
     
     if (activityTypes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Belum ada jenis kegiatan</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-row"><p>Belum ada jenis kegiatan.</p></td></tr>';
         return;
     }
     
     tbody.innerHTML = activityTypes.map(activityType => `
         <tr>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">${activityType.name}</div>
-            </td>
-            <td class="px-6 py-4">
-                <div class="text-sm text-gray-900">${activityType.description || '-'}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">${formatDate(activityType.created_at)}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <div class="actions flex flex-wrap gap-2 justify-center sm:justify-start">
-                    <button onclick="editActivityType(${activityType.id})" class="text-yellow-600 hover:text-yellow-900 px-2 py-1 rounded border border-yellow-200">
-                        Edit
-                    </button>
-                    <button onclick="deleteActivityType(${activityType.id})" class="text-red-600 hover:text-red-900 px-2 py-1 rounded border border-red-200">
-                        Hapus
-                    </button>
+            <td data-label="Nama"><div class="cell-main">${escapeHtml(activityType.name)}</div></td>
+            <td data-label="Deskripsi"><div class="cell-sub" style="margin-top:0;">${escapeHtml(activityType.description || '-')}</div></td>
+            <td data-label="Dibuat"><div class="cell-sub" style="margin-top:0;">${formatDate(activityType.created_at)}</div></td>
+            <td data-label="Aksi">
+                <div class="action-group">
+                    <button onclick="editActivityType(${activityType.id})" class="action-link warn">Edit</button>
+                    <button onclick="deleteActivityType(${activityType.id})" class="action-link danger">Hapus</button>
                 </div>
             </td>
         </tr>
@@ -678,6 +763,15 @@ function canEditReport(report) {
 
 async function handleCreateReport(e) {
     e.preventDefault();
+
+    // Validasi sisi klien: cegah submit jika tanggal sudah dipakai.
+    validateCreateDate();
+    if (createDateBlocked) {
+        showMessage('Tanggal tersebut sudah dipakai. Silakan pilih tanggal lain.', 'error');
+        document.getElementById('tanggalPelaksanaan')?.focus();
+        return;
+    }
+
     showLoading();
     
     const formData = new FormData(e.target);
@@ -705,6 +799,14 @@ async function handleCreateReport(e) {
             switchView('reports');
             loadReports();
         } else {
+            if (response.status === 409) {
+                createDateBlocked = true;
+                const dateInput = document.getElementById('tanggalPelaksanaan');
+                if (dateInput) dateInput.classList.add('is-invalid');
+                const submitBtn = document.getElementById('createReportSubmitBtn');
+                if (submitBtn) submitBtn.disabled = true;
+                renderDateStatus('createDateStatus', 'blocked', data.message || 'Tanggal sudah dipakai.');
+            }
             showMessage(data.message || 'Gagal membuat laporan', 'error');
         }
     } catch (error) {
@@ -717,6 +819,14 @@ async function handleCreateReport(e) {
 
 async function handleEditReport(e) {
     e.preventDefault();
+
+    validateEditDate();
+    if (editDateBlocked) {
+        showMessage('Tanggal tersebut sudah dipakai laporan lain. Silakan pilih tanggal lain.', 'error');
+        document.getElementById('editTanggalPelaksanaan')?.focus();
+        return;
+    }
+
     showLoading();
     
     const formData = new FormData(e.target);
@@ -751,6 +861,14 @@ async function handleEditReport(e) {
             switchView('reports');
             loadReports();
         } else {
+            if (response.status === 409) {
+                editDateBlocked = true;
+                const dateInput = document.getElementById('editTanggalPelaksanaan');
+                if (dateInput) dateInput.classList.add('is-invalid');
+                const submitBtn = document.getElementById('editReportSubmitBtn');
+                if (submitBtn) submitBtn.disabled = true;
+                renderDateStatus('editDateStatus', 'blocked', data.message || 'Tanggal sudah dipakai.');
+            }
             showMessage(data.message || 'Gagal mengupdate laporan', 'error');
         }
     } catch (error) {
@@ -766,6 +884,10 @@ function resetCreateForm() {
     if (form) {
         form.reset();
     }
+    createDateBlocked = false;
+    const dateInput = document.getElementById('tanggalPelaksanaan');
+    if (dateInput) dateInput.classList.remove('is-invalid');
+    renderDateStatus('createDateStatus', null, '');
 }
 
 async function viewReportDetail(reportId) {
@@ -975,6 +1097,8 @@ async function editReport(reportId) {
         
         if (response.ok) {
             const report = await response.json();
+            // Bersihkan draft edit sebelumnya agar nilai dari server (terutama tanggal) tidak tertimpa data lama.
+            if (window.__formPersistence) window.__formPersistence.clear('editReport');
             await loadActivityTypes(); // Ensure activity types are loaded before populating
             populateEditForm(report);
             switchView('edit-report');
@@ -1001,13 +1125,17 @@ function populateEditForm(report) {
         'editNomorSuratTugas': report.nomor_surat_tugas || '',
         // Ganti ke field tujuan_perjalanan_dinas (fallback ke kegiatan_pengawasan bila legacy)
         'editKegiatanPengawasan': tujuanPerjalanan,
-        'editTanggalPelaksanaan': report.tanggal_pelaksanaan || '',
+        // PENTING: input type=date hanya menerima YYYY-MM-DD. Jangan kirim ISO datetime / Date mentah.
+        'editTanggalPelaksanaan': toISODate(report.tanggal_pelaksanaan) || '',
         'editHariPelaksanaan': report.hari_pelaksanaan || '',
         'editAktivitas': report.aktivitas || '',
         'editPermasalahan': report.permasalahan || '',
         'editPetugasResponden': report.petugas_responden || '',
         'editSolusiAntisipasi': report.solusi_antisipasi || ''
     };
+
+    // Simpan tanggal asli untuk membedakan "tanggal tetap" vs "tanggal diubah".
+    editOriginalDate = toISODate(report.tanggal_pelaksanaan) || '';
 
     Object.keys(elements).forEach(id => {
         const element = document.getElementById(id);
@@ -1018,11 +1146,8 @@ function populateEditForm(report) {
         }
     });
 
-    // Setelah populate, restore data lokal jika ada (misal user sudah sempat isi sebelum reload)
-    const editForm = document.getElementById('editReportForm');
-    if (editForm && window.__formPersistence) {
-        window.__formPersistence.restore(editForm, 'editReport');
-    }
+    // Jangan restore draft lokal di sini. Draft lama bisa berisi tanggal kosong dan
+    // menimpa tanggal yang baru saja dimuat dari server (bug tanggal reset saat edit).
 
     const currentFotoDokumentasi = document.getElementById('currentFotoDokumentasi');
     if (currentFotoDokumentasi) {
@@ -1030,6 +1155,11 @@ function populateEditForm(report) {
             ? `Ada ${report.foto_dokumentasi.length} foto telah diunggah.`
             : 'Tidak ada foto dokumentasi.';
     }
+
+    editDateBlocked = false;
+    const dateInput = document.getElementById('editTanggalPelaksanaan');
+    if (dateInput) dateInput.classList.remove('is-invalid');
+    validateEditDate();
 }
 
 function deleteReport(reportId) {
@@ -1577,8 +1707,9 @@ function filterReports() {
                               (report.pegawai_name || '').toLowerCase().includes(searchTerm) ||
                               (report.aktivitas || '').toLowerCase().includes(searchTerm);
         
+        const reportMonth = toISODate(report.tanggal_pelaksanaan);
         const matchesMonth = !selectedMonth ||
-                           new Date(report.tanggal_pelaksanaan).getMonth() + 1 === parseInt(selectedMonth);
+                           (reportMonth && parseISODate(reportMonth).getMonth() + 1 === parseInt(selectedMonth));
         
         return matchesSearch && matchesMonth;
     });
@@ -1609,14 +1740,350 @@ function autoFillEditDay() {
     }
 }
 
+// =================== DATE & CALENDAR HELPERS ===================
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Ubah nilai tanggal apa pun (Date, ISO datetime, YYYY-MM-DD) menjadi YYYY-MM-DD lokal.
+function toISODate(value) {
+    if (!value) return '';
+    if (value instanceof Date) {
+        if (Number.isNaN(value.getTime())) return '';
+        return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+    }
+    const str = String(value).trim();
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    const parsed = new Date(str);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+}
+
+function parseISODate(iso) {
+    const [year, month, day] = String(iso).split('-').map(Number);
+    return new Date(year, month - 1, day || 1);
+}
+
+function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date, amount) {
+    return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
 function formatDate(dateString) {
-    const date = new Date(dateString);
+    const iso = toISODate(dateString);
+    if (!iso) return '-';
+    const date = parseISODate(iso);
+    if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleDateString('id-ID', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     });
 }
+
+function formatDateShort(dateString) {
+    const iso = toISODate(dateString);
+    if (!iso) return '-';
+    return parseISODate(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function reportsForDate(dateISO, excludeId = null) {
+    return reports.filter(report => {
+        if (excludeId != null && Number(report.id) === Number(excludeId)) return false;
+        return toISODate(report.tanggal_pelaksanaan) === dateISO;
+    });
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    const label = document.getElementById('calendarMonthLabel');
+    const summary = document.getElementById('calendarMonthSummary');
+    if (!grid) return;
+
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const monthName = calendarMonth.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    if (label) label.textContent = monthName;
+
+    // Senin sebagai awal minggu.
+    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayISO = toISODate(new Date());
+
+    const reportMap = new Map();
+    reports.forEach(report => {
+        const iso = toISODate(report.tanggal_pelaksanaan);
+        if (!iso) return;
+        if (!reportMap.has(iso)) reportMap.set(iso, []);
+        reportMap.get(iso).push(report);
+    });
+
+    let monthCount = 0;
+    let monthDays = 0;
+    let html = '';
+
+    for (let i = 0; i < firstWeekday; i++) {
+        html += '<div class="cal-day is-empty" aria-hidden="true"></div>';
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayReports = reportMap.get(iso) || [];
+        const classes = ['cal-day'];
+        if (iso === todayISO) classes.push('is-today');
+        if (dayReports.length) classes.push('has-report');
+        if (iso === selectedCalendarDate) classes.push('is-selected');
+        if (dayReports.length) {
+            monthCount += dayReports.length;
+            monthDays += 1;
+        }
+
+        const dots = dayReports.slice(0, 3).map(() => '<span class="cal-dot"></span>').join('');
+        const count = dayReports.length > 3 ? `<span class="cal-count">${dayReports.length}</span>` : '';
+        const title = dayReports.length
+            ? `${dayReports.length} laporan pada ${formatDate(iso)}`
+            : `Tidak ada laporan pada ${formatDate(iso)}`;
+
+        html += `
+            <button type="button" class="${classes.join(' ')}" data-date="${iso}" title="${escapeHtml(title)}" onclick="selectCalendarDate('${iso}')">
+                <span class="cal-day-num">${day}</span>
+                ${dayReports.length ? `<span class="cal-dots">${dots}</span>` : '<span class="cal-dots"></span>'}
+                ${count}
+            </button>
+        `;
+    }
+
+    const trailing = (7 - ((firstWeekday + daysInMonth) % 7)) % 7;
+    for (let i = 0; i < trailing; i++) {
+        html += '<div class="cal-day is-empty" aria-hidden="true"></div>';
+    }
+
+    grid.innerHTML = html;
+
+    if (summary) {
+        summary.textContent = `${monthCount} laporan pada ${monthDays} hari di bulan ini`;
+    }
+}
+
+function selectCalendarDate(dateISO) {
+    selectedCalendarDate = dateISO;
+    renderCalendar();
+    renderSelectedDatePanel();
+}
+
+function changeCalendarMonth(amount) {
+    calendarMonth = addMonths(calendarMonth, amount);
+    const today = new Date();
+    if (today.getFullYear() === calendarMonth.getFullYear() && today.getMonth() === calendarMonth.getMonth()) {
+        selectedCalendarDate = toISODate(today);
+    } else {
+        selectedCalendarDate = toISODate(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1));
+    }
+    renderCalendar();
+    renderSelectedDatePanel();
+}
+
+function goToCalendarToday() {
+    const today = new Date();
+    calendarMonth = startOfMonth(today);
+    selectedCalendarDate = toISODate(today);
+    renderCalendar();
+    renderSelectedDatePanel();
+}
+
+function renderSelectedDatePanel() {
+    const titleEl = document.getElementById('calendarSelectedDate');
+    const metaEl = document.getElementById('calendarSelectedMeta');
+    const listEl = document.getElementById('calendarDayReports');
+    const actionEl = document.getElementById('calendarDayAction');
+    if (!listEl) return;
+
+    const dateISO = selectedCalendarDate || toISODate(new Date());
+    const date = parseISODate(dateISO);
+    const dayReports = reportsForDate(dateISO);
+    const isToday = dateISO === toISODate(new Date());
+
+    if (titleEl) {
+        titleEl.textContent = date.toLocaleDateString('id-ID', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+    }
+    if (metaEl) {
+        metaEl.textContent = dayReports.length
+            ? `${dayReports.length} laporan pengawasan${isToday ? ' • hari ini' : ''}`
+            : `Belum ada laporan${isToday ? ' • hari ini' : ''}`;
+    }
+
+    if (dayReports.length === 0) {
+        listEl.innerHTML = `
+            <div class="day-empty">
+                <div class="day-empty-icon">
+                    <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <p>Belum ada agenda pengawasan pada tanggal ini.</p>
+            </div>
+        `;
+    } else {
+        listEl.innerHTML = dayReports.map(report => `
+            <button type="button" class="day-item" onclick="viewReportDetail(${report.id})">
+                <div class="day-item-top">
+                    <span class="day-item-title">${escapeHtml(report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '-')}</span>
+                    <span class="badge badge-success" style="flex:0 0 auto;">Selesai</span>
+                </div>
+                <div class="day-item-sub">${escapeHtml(report.pegawai_name || '-')}${report.nomor_surat_tugas ? ` • No. ST: ${escapeHtml(report.nomor_surat_tugas)}` : ''}</div>
+            </button>
+        `).join('');
+    }
+
+    if (actionEl) {
+        if (currentUser?.role === 'pegawai' && dayReports.length === 0) {
+            actionEl.innerHTML = `
+                <button type="button" class="btn btn-primary" style="width:100%;" onclick="openCreateForDate('${dateISO}')">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Buat laporan tanggal ini
+                </button>
+            `;
+        } else if (currentUser?.role === 'pegawai') {
+            actionEl.innerHTML = `
+                <div class="date-status blocked" style="margin:0;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-2.5L13.73 4c-.77-.83-1.96-.83-2.73 0L4.07 16.5C3.3 17.33 4.26 19 5.8 19z"/></svg>
+                    <span>Tanggal ini sudah dipakai. Pilih tanggal lain untuk entri baru.</span>
+                </div>
+            `;
+        } else {
+            actionEl.innerHTML = `<p class="form-hint" style="text-align:center;">Klik laporan untuk melihat detail.</p>`;
+        }
+    }
+}
+
+function openCreateForDate(dateISO) {
+    if (currentUser?.role !== 'pegawai') return;
+    switchView('create-report');
+    // Tunggu reset form & load jenis kegiatan selesai, lalu isi tanggal.
+    setTimeout(() => {
+        const dateInput = document.getElementById('tanggalPelaksanaan');
+        if (dateInput) {
+            dateInput.value = dateISO;
+            validateCreateDate();
+            dateInput.focus();
+        }
+    }, 50);
+}
+
+function validateCreateDate() {
+    const dateInput = document.getElementById('tanggalPelaksanaan');
+    const submitBtn = document.getElementById('createReportSubmitBtn');
+    if (!dateInput) return;
+
+    const dateISO = toISODate(dateInput.value);
+    createDateBlocked = false;
+    dateInput.classList.remove('is-invalid');
+
+    if (!dateISO) {
+        renderDateStatus('createDateStatus', null, '');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+
+    const conflicts = reportsForDate(dateISO);
+    if (conflicts.length) {
+        createDateBlocked = true;
+        dateInput.classList.add('is-invalid');
+        renderDateStatus(
+            'createDateStatus',
+            'blocked',
+            `Tanggal ${formatDate(dateISO)} sudah dipakai laporan pengawasan. Pilih tanggal lain.`
+        );
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+
+    renderDateStatus(
+        'createDateStatus',
+        'ok',
+        `Tanggal ${formatDate(dateISO)} masih tersedia.`
+    );
+    if (submitBtn) submitBtn.disabled = false;
+}
+
+function validateEditDate() {
+    const dateInput = document.getElementById('editTanggalPelaksanaan');
+    const submitBtn = document.getElementById('editReportSubmitBtn');
+    if (!dateInput) return;
+
+    const dateISO = toISODate(dateInput.value);
+    const reportId = document.getElementById('editReportId')?.value;
+    editDateBlocked = false;
+    dateInput.classList.remove('is-invalid');
+
+    if (!dateISO) {
+        renderDateStatus('editDateStatus', null, '');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+
+    // Tanggal tidak diubah: selalu valid. Ini juga menghindari laporan lama
+    // yang memiliki duplikat historis ikut terblokir saat diedit.
+    if (dateISO === editOriginalDate) {
+        renderDateStatus(
+            'editDateStatus',
+            'ok',
+            `Tanggal ${formatDate(dateISO)} tersimpan untuk laporan ini.`
+        );
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+
+    const conflicts = reportsForDate(dateISO, reportId);
+    if (conflicts.length) {
+        editDateBlocked = true;
+        dateInput.classList.add('is-invalid');
+        renderDateStatus(
+            'editDateStatus',
+            'blocked',
+            `Tanggal ${formatDate(dateISO)} sudah dipakai laporan lain. Pilih tanggal lain.`
+        );
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+
+    renderDateStatus(
+        'editDateStatus',
+        'ok',
+        `Tanggal ${formatDate(dateISO)} tersedia.`
+    );
+    if (submitBtn) submitBtn.disabled = false;
+}
+
+function renderDateStatus(elementId, type, message) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!type || !message) {
+        el.className = 'date-status hidden';
+        el.innerHTML = '';
+        return;
+    }
+    const icon = type === 'ok'
+        ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+        : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-2.5L13.73 4c-.77-.83-1.96-.83-2.73 0L4.07 16.5C3.3 17.33 4.26 19 5.8 19z"/></svg>';
+    el.className = `date-status ${type}`;
+    el.innerHTML = `${icon}<span>${escapeHtml(message)}</span>`;
+}
+
+window.selectCalendarDate = selectCalendarDate;
+window.changeCalendarMonth = changeCalendarMonth;
+window.goToCalendarToday = goToCalendarToday;
+window.openCreateForDate = openCreateForDate;
+window.viewReportDetail = viewReportDetail;
 
 function showLoading() {
     const overlay = document.getElementById('loadingOverlay');
@@ -1637,28 +2104,20 @@ function showMessage(message, type = 'info') {
     if (!container) return;
     
     const messageDiv = document.createElement('div');
-    
-    const bgColor = type === 'success' ? 'bg-green-500' : 
-                   type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-    
-    messageDiv.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+    const toastType = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+    messageDiv.className = `toast toast-${toastType}`;
     messageDiv.textContent = message;
     
     container.appendChild(messageDiv);
     
-    // Animate in
-    setTimeout(() => {
-        messageDiv.classList.remove('translate-x-full');
-    }, 100);
-    
     // Auto remove after 5 seconds
     setTimeout(() => {
-        messageDiv.classList.add('translate-x-full');
+        messageDiv.classList.add('hide');
         setTimeout(() => {
             if (container.contains(messageDiv)) {
                 container.removeChild(messageDiv);
             }
-        }, 300);
+        }, 240);
     }, 5000);
 }
 
@@ -1697,68 +2156,44 @@ window.editActivityType = editActivityType;
 window.deleteActivityType = deleteActivityType;
 window.confirmDelete = confirmDelete;
 
-// Copy report: duplicate an existing report to a new one and open edit form
+// Copy report: prefill a new report form. Tanggal sengaja dikosongkan karena
+// tanggal lama sudah terpakai dan tidak boleh dientri ulang.
 async function copyReport(reportId) {
-   try {
-       showLoading();
-       // Fetch original report detail to prefill
-       const detailResp = await fetch(`${API_BASE}/reports/${reportId}`, {
-           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-       });
-       if (!detailResp.ok) {
-           const j = await detailResp.json().catch(()=>({}));
-           throw new Error(j.message || 'Gagal mengambil detail laporan untuk disalin');
-       }
-       const report = await detailResp.json();
+    try {
+        showLoading();
+        const detailResp = await fetch(`${API_BASE}/reports/${reportId}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (!detailResp.ok) {
+            const j = await detailResp.json().catch(() => ({}));
+            throw new Error(j.message || 'Gagal mengambil detail laporan untuk disalin');
+        }
+        const report = await detailResp.json();
 
-       // Prepare a new FormData for create endpoint
-       const fd = new FormData();
-       if (report.activity_type_id) fd.append('activity_type_id', report.activity_type_id);
-       fd.append('nomor_surat_tugas', report.nomor_surat_tugas || '');
-       fd.append('tujuan_perjalanan_dinas', report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '');
-       fd.append('tanggal_pelaksanaan', report.tanggal_pelaksanaan || '');
-       fd.append('aktivitas', report.aktivitas || '');
-       fd.append('permasalahan', report.permasalahan || '');
-       fd.append('petugas_responden', report.petugas_responden || '');
-       fd.append('solusi_antisipasi', report.solusi_antisipasi || '');
-       // Do NOT include existing photos automatically (user can upload new ones)
+        await loadActivityTypes();
+        switchView('create-report');
 
-       // Create the duplicated report
-       const createResp = await fetch(`${API_BASE}/reports`, {
-           method: 'POST',
-           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-           body: fd
-       });
-       const createData = await createResp.json().catch(()=>({}));
-       if (!createResp.ok) {
-           throw new Error(createData.message || 'Gagal menyalin laporan');
-       }
+        const setValue = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = value ?? '';
+        };
 
-       // Open the new report in edit mode to allow user adjustments
-       const newId = createData?.report?.id;
-       if (newId) {
-           const respGet = await fetch(`${API_BASE}/reports/${newId}`, {
-               headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-           });
-           if (respGet.ok) {
-               const newReport = await respGet.json();
-               await loadActivityTypes();
-               populateEditForm(newReport);
-               switchView('edit-report');
-               showMessage('Laporan berhasil disalin. Silakan perbarui data jika diperlukan.', 'success');
-           } else {
-               // fallback: just reload list
-               await loadReports();
-               showMessage('Laporan berhasil disalin', 'success');
-           }
-       } else {
-           await loadReports();
-           showMessage('Laporan berhasil disalin', 'success');
-       }
-   } catch (err) {
-       console.error('Error copying report:', err);
-       showMessage(err?.message || 'Terjadi kesalahan saat menyalin laporan', 'error');
-   } finally {
-       hideLoading();
-   }
+        setValue('activityType', report.activity_type_id ?? '');
+        setValue('nomorSuratTugas', report.nomor_surat_tugas || '');
+        setValue('kegiatanPengawasan', report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '');
+        setValue('tanggalPelaksanaan', '');
+        setValue('aktivitas', report.aktivitas || '');
+        setValue('permasalahan', report.permasalahan || '');
+        setValue('petugasResponden', report.petugas_responden || '');
+        setValue('solusiAntisipasi', report.solusi_antisipasi || '');
+
+        createDateBlocked = false;
+        renderDateStatus('createDateStatus', null, '');
+        showMessage('Data laporan disalin. Pilih tanggal baru untuk menyimpan.', 'success');
+    } catch (err) {
+        console.error('Error copying report:', err);
+        showMessage(err?.message || 'Terjadi kesalahan saat menyalin laporan', 'error');
+    } finally {
+        hideLoading();
+    }
 }

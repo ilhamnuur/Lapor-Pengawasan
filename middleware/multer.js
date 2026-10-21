@@ -1,7 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const db = require('../config/database-sqlite');
+const pg = require('../config/database');
 
 // Configure multer for file uploads with organized directory structure
 const storage = multer.diskStorage({
@@ -18,8 +18,9 @@ const storage = multer.diskStorage({
             
             if (activityTypeId) {
                 try {
-                    // Fetch activity type name from database
-                    const activityType = await db.get('SELECT name FROM activity_types WHERE id = ?', [activityTypeId]);
+                    // Fetch activity type name from PostgreSQL
+                    const { rows } = await pg.query('SELECT name FROM activity_types WHERE id = $1', [Number(activityTypeId)]);
+                    const activityType = rows[0];
                     if (activityType) {
                         // Clean the name for use as folder name (remove special characters)
                         activityTypeName = activityType.name.toLowerCase()
