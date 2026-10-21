@@ -73,7 +73,7 @@ say "Status"
 pm2 status "$APP_NAME"
 PORT_VALUE="$(grep -E '^PORT=' .env | cut -d= -f2 | tr -d '[:space:]')"
 echo
-echo "Cek lokal: curl -s -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:${PORT_VALUE:-3000}/"
+echo "Cek lokal: curl -s -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:${PORT_VALUE:-3100}/"
 echo "Log     : pm2 logs ${APP_NAME}"
 echo
 echo "Agar otomatis hidup setelah server reboot, jalankan sekali:"

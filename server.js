@@ -21,7 +21,7 @@ try {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3100;
 console.log(`Application is trying to use port: ${PORT}`);
 
 // Middleware

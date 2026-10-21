@@ -106,7 +106,7 @@ nano .env
 Isi minimal:
 
 ```ini
-PORT=3000
+PORT=3100
 NODE_ENV=production
 TZ=Asia/Jakarta
 
@@ -172,8 +172,8 @@ node server.js
 Cek di terminal lain:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/         # harus 200
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/api/reports  # harus 401
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3100/         # harus 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3100/api/reports  # harus 401
 ```
 
 Buka di browser, login, pastikan kalender dan laporan tampil. Hentikan dengan
@@ -224,7 +224,7 @@ server {
     client_max_body_size 25M;   # upload foto sampai 6 x 20MB
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3100;
         proxy_http_version 1.1;
 
         proxy_set_header Host              $host;
@@ -245,11 +245,11 @@ sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d lapor.example.go.id
 ```
 
-Setelah Nginx aktif, port 3000 **jangan** dibuka ke publik:
+Setelah Nginx aktif, port 3100 **jangan** dibuka ke publik:
 
 ```bash
 sudo ufw allow 80,443/tcp
-sudo ufw deny 3000/tcp
+sudo ufw deny 3100/tcp
 ```
 
 ---
@@ -312,7 +312,7 @@ pg_restore -h 10.10.10.195 -U casaos -d lapor --clean --if-exists /var/backups/l
 ## 7. Verifikasi setelah deploy
 
 1. `pm2 status` → status `online`, restart count tidak naik terus.
-2. `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/` → `200`.
+2. `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3100/` → `200`.
 3. Login sebagai pegawai:
    - kalender menampilkan titik laporan pada tanggal yang ada laporannya,
    - pilih tanggal terpakai di form **Buat Laporan** → muncul peringatan
@@ -329,7 +329,7 @@ pg_restore -h 10.10.10.195 -U casaos -d lapor --clean --if-exists /var/backups/l
 
 | Gejala | Penyebab umum | Solusi |
 |---|---|---|
-| `EADDRINUSE` | port 3000 dipakai proses lain | `pm2 delete lapor-pengawasan`, cek `ss -ltnp \| grep 3000` |
+| `EADDRINUSE` | port 3100 dipakai proses lain | `pm2 delete lapor-pengawasan`, cek `ss -ltnp \| grep 3100` |
 | Semua request `401/403` setelah deploy | `JWT_SECRET` berbeda dengan token user | login ulang; pastikan `.env` konsisten |
 | `ECONNREFUSED` / DB error | kredensial `.env` salah atau PostgreSQL mati | `psql -h … -U … -d … -c 'select 1'`, cek `pm2 logs` |
 | Tanggal mundur 1 hari | zona waktu server bukan WIB | set `TZ=Asia/Jakarta`, `pm2 restart --update-env` |
