@@ -1,14 +1,17 @@
 # Environment variables
 .env
 
-# Database
+# Database (SQLite legacy, termasuk file -wal/-shm)
 database/*.db
+database/*.db-wal
+database/*.db-shm
 
 # Node modules (jika tidak ingin mengunggah node_modules)
 node_modules/
 
 # Log files
 *.log
+logs/
 
 # Uploaded files (jika tidak ingin mengunggah file upload)
 uploads/
