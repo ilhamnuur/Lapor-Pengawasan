@@ -276,6 +276,18 @@ bash scripts/install-server.sh
 
 Jangan lupa `pm2 save` setelah perubahan konfigurasi.
 
+### 5.1 Migrasi database untuk fitur surat tugas
+
+Fitur surat tugas per jenis kegiatan menambah satu kolom nullable. Jalankan
+sekali setelah `git pull` (aditif — tidak menghapus atau mengubah data lama):
+
+```bash
+psql -h 10.10.10.195 -U casaos -d lapor -f database/migration_surat_tugas.sql
+```
+
+File PDF disimpan di `uploads/surat_tugas/` (ikut tercakup pada backup
+`uploads` di bagian 6). Dependency `pdf-lib` otomatis terpasang lewat `npm ci`.
+
 ---
 
 ## 6. Backup rutin

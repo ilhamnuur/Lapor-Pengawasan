@@ -786,7 +786,7 @@ function updateActivityTypesTable() {
     if (!tbody) return;
     
     if (activityTypes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-row"><p>Belum ada jenis kegiatan.</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-row"><p>Belum ada jenis kegiatan.</p></td></tr>';
         return;
     }
     
@@ -794,6 +794,11 @@ function updateActivityTypesTable() {
         <tr>
             <td data-label="Nama"><div class="cell-main">${escapeHtml(activityType.name)}</div></td>
             <td data-label="Deskripsi"><div class="cell-sub" style="margin-top:0;">${escapeHtml(activityType.description || '-')}</div></td>
+            <td data-label="Surat Tugas">
+                ${activityType.surat_tugas_path
+                    ? `<a class="action-link" style="color:var(--brand);border-color:#c7d2fe;background:var(--brand-soft);" href="/${escapeHtml(activityType.surat_tugas_path)}" target="_blank" rel="noopener">Lihat PDF</a>`
+                    : '<span class="cell-sub" style="margin-top:0;">-</span>'}
+            </td>
             <td data-label="Dibuat"><div class="cell-sub" style="margin-top:0;">${formatDate(activityType.created_at)}</div></td>
             <td data-label="Aksi">
                 <div class="action-group">
@@ -1526,10 +1531,18 @@ async function handleActivityTypeForm(e) {
     
     const formData = new FormData(e.target);
     const activityTypeId = formData.get('activityTypeId');
-    const activityTypeData = {
-        name: formData.get('name'),
-        description: formData.get('description')
-    };
+    const payload = new FormData();
+    payload.append('name', formData.get('name') || '');
+    payload.append('description', formData.get('description') || '');
+
+    const fileInput = document.getElementById('activityTypeSuratTugas');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+        payload.append('surat_tugas', fileInput.files[0]);
+    }
+    const removeCheckbox = document.getElementById('activityTypeRemoveSuratTugas');
+    if (removeCheckbox && removeCheckbox.checked) {
+        payload.append('remove_surat_tugas', '1');
+    }
     
     try {
         const url = activityTypeId ? `${API_BASE}/activity-types/${activityTypeId}` : `${API_BASE}/activity-types`;
@@ -1538,10 +1551,9 @@ async function handleActivityTypeForm(e) {
         const response = await fetch(url, {
             method: method,
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
-            body: JSON.stringify(activityTypeData)
+            body: payload
         });
         
         const data = await response.json();
@@ -1578,6 +1590,27 @@ function showActivityTypeForm(activityType = null) {
         form.reset();
         document.getElementById('activityTypeId').value = '';
     }
+
+    // Reset input file & status surat tugas setiap kali modal dibuka.
+    const fileInput = document.getElementById('activityTypeSuratTugas');
+    if (fileInput) fileInput.value = '';
+
+    const currentEl = document.getElementById('activityTypeSuratTugasCurrent');
+    const removeWrap = document.getElementById('activityTypeRemoveSuratTugasWrap');
+    const removeCheckbox = document.getElementById('activityTypeRemoveSuratTugas');
+    if (removeCheckbox) removeCheckbox.checked = false;
+
+    const hasFile = !!(activityType && activityType.surat_tugas_path);
+    if (currentEl) {
+        if (hasFile) {
+            currentEl.innerHTML = `Surat tugas saat ini: <a href="/${escapeHtml(activityType.surat_tugas_path)}" target="_blank" rel="noopener">lihat PDF</a>`;
+            currentEl.classList.remove('hidden');
+        } else {
+            currentEl.innerHTML = '';
+            currentEl.classList.add('hidden');
+        }
+    }
+    if (removeWrap) removeWrap.classList.toggle('hidden', !hasFile);
     
     modal.classList.remove('hidden');
 }

@@ -4,8 +4,38 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const router = express.Router();
 const multer = require('multer');
 const ExcelJS = require('exceljs');
+const path = require('path');
+const fs = require('fs');
+const suratTugasUpload = require('../middleware/suratTugasUpload');
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Helper surat tugas (PDF) per jenis kegiatan.
+function suratTugasRelativePath(file) {
+    return file ? `uploads/surat_tugas/${file.filename}` : null;
+}
+
+function deleteSuratTugasFile(relativePath) {
+    if (!relativePath) return;
+    const absolutePath = path.resolve(relativePath);
+    fs.unlink(absolutePath, (err) => {
+        if (err && err.code !== 'ENOENT') {
+            console.error('[ACTIVITY_TYPES] gagal hapus surat tugas:', err.message);
+        }
+    });
+}
+
+function handleSuratTugasUpload(req, res, next) {
+    suratTugasUpload.single('surat_tugas')(req, res, (err) => {
+        if (err) {
+            const message = err.code === 'LIMIT_FILE_SIZE'
+                ? 'Ukuran surat tugas maksimal 20 MB'
+                : (err.message || 'Gagal mengunggah surat tugas');
+            return res.status(400).json({ message });
+        }
+        next();
+    });
+}
 
 // Get all activity types
 router.get('/', authenticateToken, async (req, res) => {
@@ -19,22 +49,25 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Create activity type (Kepala only)
-router.post('/', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
+router.post('/', authenticateToken, authorizeRole(['kepala']), handleSuratTugasUpload, async (req, res) => {
+    const uploadedPath = suratTugasRelativePath(req.file);
     try {
         const { name, description } = req.body;
 
         if (!name || name.trim() === '') {
+            deleteSuratTugasFile(uploadedPath);
             return res.status(400).json({ message: 'Nama jenis kegiatan wajib diisi' });
         }
 
         const { rows: exist } = await pg.query('SELECT 1 FROM activity_types WHERE LOWER(name) = LOWER($1)', [name.trim()]);
         if (exist.length) {
+            deleteSuratTugasFile(uploadedPath);
             return res.status(400).json({ message: 'Jenis kegiatan sudah ada' });
         }
 
         const { rows } = await pg.query(
-            'INSERT INTO activity_types (name, description) VALUES ($1,$2) RETURNING *',
-            [name.trim(), description || null]
+            'INSERT INTO activity_types (name, description, surat_tugas_path) VALUES ($1,$2,$3) RETURNING *',
+            [name.trim(), description || null, uploadedPath]
         );
 
         res.status(201).json({
@@ -42,23 +75,28 @@ router.post('/', authenticateToken, authorizeRole(['kepala']), async (req, res) 
             activityType: rows[0]
         });
     } catch (error) {
+        deleteSuratTugasFile(uploadedPath);
         console.error('[ACTIVITY_TYPES] create error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Update activity type (Kepala only)
-router.put('/:id', authenticateToken, authorizeRole(['kepala']), async (req, res) => {
+router.put('/:id', authenticateToken, authorizeRole(['kepala']), handleSuratTugasUpload, async (req, res) => {
+    const uploadedPath = suratTugasRelativePath(req.file);
+    let updateSaved = false;
     try {
         const { id } = req.params;
-        const { name, description } = req.body;
+        const { name, description, remove_surat_tugas } = req.body;
 
         if (!name || name.trim() === '') {
+            deleteSuratTugasFile(uploadedPath);
             return res.status(400).json({ message: 'Nama jenis kegiatan wajib diisi' });
         }
 
-        const { rows: exist } = await pg.query('SELECT id FROM activity_types WHERE id = $1', [id]);
+        const { rows: exist } = await pg.query('SELECT id, surat_tugas_path FROM activity_types WHERE id = $1', [id]);
         if (!exist.length) {
+            deleteSuratTugasFile(uploadedPath);
             return res.status(404).json({ message: 'Jenis kegiatan tidak ditemukan' });
         }
 
@@ -67,10 +105,30 @@ router.put('/:id', authenticateToken, authorizeRole(['kepala']), async (req, res
             [name.trim(), id]
         );
         if (dup.length) {
+            deleteSuratTugasFile(uploadedPath);
             return res.status(400).json({ message: 'Jenis kegiatan sudah ada' });
         }
 
-        await pg.query('UPDATE activity_types SET name = $1, description = $2 WHERE id = $3', [name.trim(), description || null, id]);
+        const previousPath = exist[0].surat_tugas_path || null;
+        const shouldRemove = String(remove_surat_tugas || '') === '1' || String(remove_surat_tugas || '').toLowerCase() === 'true';
+
+        let nextPath = previousPath;
+        if (uploadedPath) {
+            nextPath = uploadedPath;
+        } else if (shouldRemove) {
+            nextPath = null;
+        }
+
+        await pg.query(
+            'UPDATE activity_types SET name = $1, description = $2, surat_tugas_path = $3 WHERE id = $4',
+            [name.trim(), description || null, nextPath, id]
+        );
+        updateSaved = true;
+
+        // Bersihkan file lama hanya setelah update berhasil.
+        if (previousPath && previousPath !== nextPath) {
+            deleteSuratTugasFile(previousPath);
+        }
 
         const { rows } = await pg.query('SELECT * FROM activity_types WHERE id = $1', [id]);
 
@@ -79,6 +137,7 @@ router.put('/:id', authenticateToken, authorizeRole(['kepala']), async (req, res
             activityType: rows[0]
         });
     } catch (error) {
+        if (!updateSaved) deleteSuratTugasFile(uploadedPath);
         console.error('[ACTIVITY_TYPES] update error:', error);
         res.status(500).json({ message: 'Server error' });
     }
@@ -89,7 +148,7 @@ router.delete('/:id', authenticateToken, authorizeRole(['kepala']), async (req, 
     try {
         const { id } = req.params;
 
-        const { rows: exist } = await pg.query('SELECT id FROM activity_types WHERE id = $1', [id]);
+        const { rows: exist } = await pg.query('SELECT id, surat_tugas_path FROM activity_types WHERE id = $1', [id]);
         if (!exist.length) {
             return res.status(404).json({ message: 'Jenis kegiatan tidak ditemukan' });
         }
@@ -100,6 +159,7 @@ router.delete('/:id', authenticateToken, authorizeRole(['kepala']), async (req, 
         }
 
         await pg.query('DELETE FROM activity_types WHERE id = $1', [id]);
+        deleteSuratTugasFile(exist[0].surat_tugas_path);
 
         res.json({ message: 'Jenis kegiatan berhasil dihapus' });
     } catch (error) {

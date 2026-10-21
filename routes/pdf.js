@@ -2,9 +2,20 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const { PDFDocument } = require('pdf-lib');
 const pg = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
+
+// Jalankan Chromium; bisa diarahkan ke browser lokal lewat env
+// PUPPETEER_EXECUTABLE_PATH (mis. saat testing di Windows).
+function launchBrowser() {
+    const options = { headless: 'new' };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    return puppeteer.launch(options);
+}
 
 
 // Generate PDF for single report
@@ -16,7 +27,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
 
         if (req.user.role === 'kepala') {
             query = `
-                SELECT r.*, u.name as pegawai_name, ac.description as description_name
+                SELECT r.*, u.name as pegawai_name, ac.description as description_name, ac.surat_tugas_path
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
                 JOIN activity_types ac ON r.activity_type_id = ac.id
@@ -25,7 +36,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             params = [id];
         } else {
             query = `
-                SELECT r.*, u.name as pegawai_name, ac.description as description_name
+                SELECT r.*, u.name as pegawai_name, ac.description as description_name, ac.surat_tugas_path
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
                 JOIN activity_types ac ON r.activity_type_id = ac.id
@@ -233,9 +244,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             </html>
         `;
         
-        const browser = await puppeteer.launch({
-        headless: "new" // Opt-in to the new Headless mode
-        });
+        const browser = await launchBrowser();
         const page = await browser.newPage();
         await page.setContent(htmlContent);
         
@@ -251,10 +260,13 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         });
         
         await browser.close();
-        
+
+        // Surat tugas jenis kegiatan (jika ada) menjadi halaman pertama.
+        const finalPdf = await prependSuratTugas(report.surat_tugas_path, pdf);
+
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="Laporan_${report.pegawai_name}_${report.tanggal_pelaksanaan}.pdf"`);
-        res.send(pdf);
+        res.send(finalPdf);
         
     } catch (error) {
         console.error(error);
@@ -279,7 +291,7 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
         // Generate simplified HTML (no photos) for all reports
         const htmlContent = generateAllReportsHTML(reports);
         
-        const browser = await puppeteer.launch();
+        const browser = await launchBrowser();
         const page = await browser.newPage();
         await page.setContent(htmlContent);
         
@@ -382,6 +394,40 @@ function generateAllReportsHTML(reports) {
         </body>
         </html>
     `;
+}
+
+// Gabungkan surat tugas (PDF) di depan PDF laporan.
+// Jika file tidak ada / gagal dibaca, PDF laporan tetap dikembalikan apa adanya.
+async function prependSuratTugas(suratTugasPath, reportPdfBuffer) {
+    if (!suratTugasPath) return reportPdfBuffer;
+
+    try {
+        const absolutePath = path.resolve(suratTugasPath);
+        if (!fs.existsSync(absolutePath)) {
+            console.warn('[PDF] Surat tugas tidak ditemukan:', absolutePath);
+            return reportPdfBuffer;
+        }
+
+        const [suratBytes, reportBytes] = await Promise.all([
+            fs.promises.readFile(absolutePath),
+            Promise.resolve(reportPdfBuffer)
+        ]);
+
+        const suratDoc = await PDFDocument.load(suratBytes);
+        const reportDoc = await PDFDocument.load(reportBytes);
+        const mergedDoc = await PDFDocument.create();
+
+        const suratPages = await mergedDoc.copyPages(suratDoc, suratDoc.getPageIndices());
+        suratPages.forEach(page => mergedDoc.addPage(page));
+
+        const reportPages = await mergedDoc.copyPages(reportDoc, reportDoc.getPageIndices());
+        reportPages.forEach(page => mergedDoc.addPage(page));
+
+        return Buffer.from(await mergedDoc.save());
+    } catch (error) {
+        console.error('[PDF] Gagal menggabungkan surat tugas:', error.message);
+        return reportPdfBuffer;
+    }
 }
 
 module.exports = router;

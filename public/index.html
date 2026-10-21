@@ -347,6 +347,7 @@
         .input.is-invalid, .input.is-invalid:focus { border-color: #fca5a5; box-shadow: 0 0 0 4px rgba(239, 68, 68, .1); }
         .textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
         .form-hint { margin: 0; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+        #activityTypeRemoveSuratTugasWrap { display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer; }
         .date-status { display: flex; align-items: flex-start; gap: 8px; padding: 9px 11px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 1.45; }
         .date-status svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; }
         .date-status.ok { color: #047857; background: var(--success-soft); }
@@ -1095,12 +1096,13 @@
                                         <tr>
                                             <th>Nama</th>
                                             <th>Deskripsi</th>
+                                            <th>Surat Tugas</th>
                                             <th>Dibuat</th>
                                             <th>Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody id="activityTypesTableBody">
-                                        <tr><td colspan="4" class="empty-row">Memuat data...</td></tr>
+                                        <tr><td colspan="5" class="empty-row">Memuat data...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -1185,6 +1187,16 @@
                     <div class="form-field" style="margin-bottom:14px;">
                         <label for="activityTypeDescription" class="label">Deskripsi</label>
                         <textarea id="activityTypeDescription" name="description" rows="3" class="textarea"></textarea>
+                    </div>
+                    <div class="form-field" style="margin-bottom:14px;">
+                        <label for="activityTypeSuratTugas" class="label">Surat Tugas (PDF)</label>
+                        <input type="file" id="activityTypeSuratTugas" name="surat_tugas" accept="application/pdf,.pdf">
+                        <p class="form-hint">Opsional. PDF ini dicetak sebagai halaman pertama saat pegawai mencetak laporan pengawasan jenis kegiatan ini.</p>
+                        <div id="activityTypeSuratTugasCurrent" class="current-photo hidden"></div>
+                        <label id="activityTypeRemoveSuratTugasWrap" class="form-hint hidden">
+                            <input type="checkbox" id="activityTypeRemoveSuratTugas" style="width:auto;">
+                            Hapus surat tugas yang sudah ada
+                        </label>
                     </div>
                     <div class="form-actions">
                         <button type="button" id="cancelActivityTypeBtn" class="btn btn-secondary">Batal</button>

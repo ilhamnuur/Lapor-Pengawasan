@@ -25,6 +25,7 @@ CREATE TABLE activity_types (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   description TEXT,
+  surat_tugas_path TEXT,
   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
