@@ -1,0 +1,15 @@
+# Override untuk menjalankan di laptop (Docker Desktop) dengan PostgreSQL
+# yang ada di host, bukan container.
+#
+# Pemakaian:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#
+# Sesuaikan DB_PORT dengan port PostgreSQL lokal (contoh di sini 55432).
+
+services:
+  app:
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "55432"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -384,4 +384,61 @@ public/index.html         UI (login, kalender, tabel, form)
 public/app.js             logika UI + validasi tanggal sisi klien
 uploads/                  file foto (backup terpisah dari DB)
 logs/                     log PM2
+Dockerfile                image Node 18 + Chromium untuk cetak PDF
+docker-compose.yml        jalankan app di Docker (pakai DB yang sudah ada)
 ```
+
+---
+
+## 11. Docker (opsional)
+
+Repo sudah menyertakan `Dockerfile`, `.dockerignore`, dan `docker-compose.yml`.
+Image memakai Node 18 + Chromium (untuk cetak PDF), dan **tetap memakai
+PostgreSQL yang sudah ada** (container `postgresql`) — data lama tidak disentuh.
+
+### 11.1 Build & jalankan
+
+```bash
+cd ~/Lapor-Pengawasan
+
+# Hentikan PM2 agar port 3100 bebas
+pm2 stop lapor-pengawasan
+pm2 save
+
+docker compose build
+docker compose up -d
+docker compose logs -f
+```
+
+Cek: `curl -I http://127.0.0.1:3100/`
+
+### 11.2 Catatan
+
+- `uploads/` di-mount dari host (`./uploads:/app/uploads`), jadi foto dan surat
+  tugas lama tetap ada.
+- `.env` dipakai lewat `env_file`; `DB_HOST` otomatis diarahkan ke `postgresql`
+  lewat network `postgresql_default` (bisa diganti dengan `DB_NETWORK=...`).
+- Migrasi database tetap dijalankan sekali seperti bagian 5.1.
+- Chromium dijalankan dengan `PUPPETEER_NO_SANDBOX=1` (wajib di container).
+- Kembali ke PM2 bila perlu: `docker compose down` lalu
+  `pm2 start ecosystem.config.js`.
+- Log: `docker compose logs -f` (bukan lagi `logs/pm2-*.log`).
+
+### 11.3 Menjalankan di komputer lokal (Docker Desktop)
+
+Kalau database PostgreSQL ada di host (bukan container), arahkan `DB_HOST`
+ke `host.docker.internal`:
+
+```bash
+docker build -t lapor-pengawasan:latest .
+docker run -d --name lapor-pengawasan -p 3100:3100 \
+  --env-file .env \
+  -e DB_HOST=host.docker.internal \
+  -e DB_PORT=5432 \
+  -e PUPPETEER_NO_SANDBOX=1 \
+  -v "%cd%/uploads:/app/uploads" \
+  lapor-pengawasan:latest
+```
+
+Di Linux/macOS, ganti `%cd%` dengan `$(pwd)`. Ukuran image sekitar 1,6 GB
+karena berisi Chromium.

@@ -1,0 +1,47 @@
+# Docker Compose untuk Lapor-Pengawasan.
+#
+# Aplikasi memakai PostgreSQL yang SUDAH ADA (tidak ada service database
+# di sini), jadi data lama tidak disentuh.
+#
+# Pemakaian di server:
+#   docker compose build
+#   docker compose up -d
+#   docker compose logs -f
+#
+# Sebelum menjalankan, hentikan dulu PM2 agar port 3100 tidak bentrok:
+#   pm2 stop lapor-pengawasan && pm2 save
+#
+# Koneksi database diambil dari .env (DB_HOST, DB_PORT, DB_NAME, DB_USER,
+# DB_PASSWORD). Di server nilainya sudah menunjuk ke PostgreSQL yang ada.
+#
+# Untuk laptop/dev, gunakan override lokal:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+
+services:
+  app:
+    build:
+      context: .
+    image: lapor-pengawasan:latest
+    container_name: lapor-pengawasan
+    # Otomatis jalan lagi setelah PC/daemon Docker restart.
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Jakarta
+      PORT: "3100"
+      # Chromium bawaan image + flag yang diperlukan di dalam container.
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      PUPPETEER_NO_SANDBOX: "1"
+    ports:
+      - "3100:3100"
+    volumes:
+      # Foto laporan & surat tugas tersimpan di host, aman saat container dibuat ulang.
+      - ./uploads:/app/uploads
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

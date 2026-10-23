@@ -14,6 +14,10 @@ function launchBrowser() {
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
         options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     }
+    // Di dalam container Chromium perlu dijalankan tanpa sandbox.
+    if (process.env.PUPPETEER_NO_SANDBOX === '1') {
+        options.args = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
+    }
     return puppeteer.launch(options);
 }
 
