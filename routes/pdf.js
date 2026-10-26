@@ -2,15 +2,24 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const { PDFDocument } = require('pdf-lib');
 const pg = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
-// Jalankan Chromium; bisa diarahkan ke browser lokal lewat env
-// PUPPETEER_EXECUTABLE_PATH (mis. saat testing di Windows).
-function launchBrowser() {
-    const options = { headless: 'new' };
+// Ukuran maksimum sisi foto yang ditanam ke PDF (px) dan kualitas JPEG.
+// Foto asli bisa >10 MB; setelah diperkecil hasilnya cukup tajam untuk cetak
+// tetapi jauh lebih cepat dibaca, dirender, dan diunduh.
+const PDF_PHOTO_MAX_EDGE = Number(process.env.PDF_PHOTO_MAX_EDGE) || 1400;
+const PDF_PHOTO_QUALITY = Number(process.env.PDF_PHOTO_QUALITY) || 78;
+
+let browserPromise = null;
+
+function browserOptions() {
+    // Bisa diarahkan ke browser lokal lewat env PUPPETEER_EXECUTABLE_PATH
+    // (mis. saat testing di Windows).
+    const options = { headless: 'new', timeout: 60000 };
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
         options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     }
@@ -18,7 +27,101 @@ function launchBrowser() {
     if (process.env.PUPPETEER_NO_SANDBOX === '1') {
         options.args = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
     }
-    return puppeteer.launch(options);
+    return options;
+}
+
+// Satu browser dipakai ulang untuk semua request. Membuka browser baru
+// per cetak memakan ±2 detik (launch + close) dan bisa puluhan detik
+// saat cache disk dingin.
+function getBrowser() {
+    if (!browserPromise) {
+        const promise = puppeteer.launch(browserOptions())
+            .then((browser) => {
+                browser.on('disconnected', () => {
+                    // Hanya lepaskan referensi jika ini memang browser yang
+                    // sedang dipakai (jangan hapus browser pengganti).
+                    if (browserPromise === promise) {
+                        browserPromise = null;
+                    }
+                });
+                return browser;
+            })
+            .catch((error) => {
+                if (browserPromise === promise) {
+                    browserPromise = null;
+                }
+                throw error;
+            });
+        browserPromise = promise;
+    }
+    return browserPromise;
+}
+
+async function newPage() {
+    const browser = await getBrowser();
+    try {
+        return await browser.newPage();
+    } catch (error) {
+        // Browser mungkin sudah mati; buat ulang sekali lalu coba lagi.
+        if (browser.isConnected()) {
+            throw error;
+        }
+        if (browserPromise) {
+            browserPromise = null;
+        }
+        const freshBrowser = await getBrowser();
+        return freshBrowser.newPage();
+    }
+}
+
+async function renderPdf(htmlContent, pdfOptions) {
+    const page = await newPage();
+    try {
+        await page.setContent(htmlContent);
+        return await page.pdf(pdfOptions);
+    } finally {
+        await page.close().catch(() => {});
+    }
+}
+
+// Foto diperkecil dan dikompres sebelum diubah menjadi data URI. Ini menjaga
+// ukuran HTML/PDF tetap kecil tanpa mengubah isi laporan.
+async function photoToDataUri(photoPath) {
+    const absolutePath = path.resolve(photoPath);
+    let imageBuffer;
+    try {
+        imageBuffer = await fs.promises.readFile(absolutePath);
+    } catch (error) {
+        console.error(`Gagal memuat gambar: ${photoPath}`, error);
+        return '';
+    }
+
+    try {
+        const optimized = await sharp(imageBuffer)
+            .rotate()
+            .resize({
+                width: PDF_PHOTO_MAX_EDGE,
+                height: PDF_PHOTO_MAX_EDGE,
+                fit: 'inside',
+                withoutEnlargement: true
+            })
+            .flatten({ background: '#ffffff' })
+            .jpeg({ quality: PDF_PHOTO_QUALITY, mozjpeg: true })
+            .toBuffer();
+        return `data:image/jpeg;base64,${optimized.toString('base64')}`;
+    } catch (error) {
+        // Jika format tidak didukung sharp, kembalikan perilaku lama.
+        console.error(`Gagal mengoptimasi gambar: ${photoPath}`, error);
+        const fileType = path.extname(photoPath).substring(1) || 'jpeg';
+        return `data:image/${fileType};base64,${imageBuffer.toString('base64')}`;
+    }
+}
+
+// Menyalakan browser lebih awal agar cetak pertama tidak menunggu cold start.
+async function warmUpPdfBrowser() {
+    const page = await newPage();
+    await page.close();
+    return true;
 }
 
 
@@ -62,34 +165,17 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         // Generate photos HTML for second page
         let photosHTML = '';
         if (report.foto_dokumentasi?.length > 0) {
-            const photoElements = report.foto_dokumentasi.map(photoPath => {
-                try {
-                    // 1. Dapatkan path absolut ke file
-                    const absolutePath = path.resolve(photoPath);
+            const photoDataUris = await Promise.all(
+                report.foto_dokumentasi.map(photoPath => photoToDataUri(photoPath))
+            );
 
-                    // 2. Baca data file gambar
-                    const imageBuffer = fs.readFileSync(absolutePath);
-
-                    // 3. Konversi data ke string Base64
-                    const base64Image = imageBuffer.toString('base64');
-
-                    // 4. Dapatkan tipe file (misal: 'jpeg', 'png') untuk membuat data URI
-                    const fileType = path.extname(photoPath).substring(1);
-
-                    // 5. Buat data URI
-                    const dataUri = `data:image/${fileType};base64,${base64Image}`;
-
-                    return `
+            const photoElements = photoDataUris
+                .filter(Boolean)
+                .map(dataUri => `
                     <div class="photo-item">
                         <img src="${dataUri}" alt="Foto Dokumentasi">
-                    </div>`;
-
-                } catch (error) {
-                    console.error(`Gagal memuat gambar: ${photoPath}`, error);
-                    // Return string kosong atau placeholder jika gambar gagal dimuat
-                    return '';
-                }
-            }).join('');
+                    </div>`)
+                .join('');
 
             photosHTML = `
             <div class="page-break"></div>
@@ -248,11 +334,7 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             </html>
         `;
         
-        const browser = await launchBrowser();
-        const page = await browser.newPage();
-        await page.setContent(htmlContent);
-        
-        const pdf = await page.pdf({
+        const pdf = await renderPdf(htmlContent, {
             format: 'A4',
             printBackground: true,
             margin: {
@@ -262,8 +344,6 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
                 left: '15mm'
             }
         });
-        
-        await browser.close();
 
         // Surat tugas jenis kegiatan (jika ada) menjadi halaman pertama.
         const finalPdf = await prependSuratTugas(report.surat_tugas_path, pdf);
@@ -295,11 +375,7 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
         // Generate simplified HTML (no photos) for all reports
         const htmlContent = generateAllReportsHTML(reports);
         
-        const browser = await launchBrowser();
-        const page = await browser.newPage();
-        await page.setContent(htmlContent);
-        
-        const pdf = await page.pdf({
+        const pdf = await renderPdf(htmlContent, {
             format: 'A4',
             printBackground: true,
             margin: {
@@ -309,8 +385,6 @@ router.get('/all-reports', authenticateToken, async (req, res) => {
                 left: '10mm'
             }
         });
-        
-        await browser.close();
         
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="Laporan_Semua_Kegiatan_Pengawasan.pdf"`);
@@ -435,3 +509,14 @@ async function prependSuratTugas(suratTugasPath, reportPdfBuffer) {
 }
 
 module.exports = router;
+module.exports.warmUp = warmUpPdfBrowser;
+module.exports.closeBrowser = async () => {
+    const pending = browserPromise;
+    browserPromise = null;
+    if (pending) {
+        const browser = await pending.catch(() => null);
+        if (browser) {
+            await browser.close().catch(() => {});
+        }
+    }
+};

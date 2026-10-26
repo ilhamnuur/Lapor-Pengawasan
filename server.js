@@ -54,4 +54,9 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    // Nyalakan Chromium lebih awal agar cetak PDF pertama tidak menunggu
+    // cold start (di server bisa puluhan detik).
+    pdfRoutes.warmUp?.().catch((err) => {
+        console.warn('[PDF] Warm-up browser gagal:', err?.message || err);
+    });
 });
