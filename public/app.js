@@ -6,6 +6,7 @@ let users = [];
 let activityTypes = [];
 let deleteItemId = null;
 let deleteItemType = null;
+let pendingPdfReportId = null;
 let filteredReports = [];
 let reportPage = 1;
 const REPORTS_PER_PAGE = 10;
@@ -226,6 +227,39 @@ function setupEventListeners() {
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener('click', confirmDelete);
     }
+
+    // Konfirmasi watermark sebelum mencetak PDF laporan.
+    const closePdfWatermarkModalBtn = document.getElementById('closePdfWatermarkModal');
+    if (closePdfWatermarkModalBtn) {
+        closePdfWatermarkModalBtn.addEventListener('click', closePdfWatermarkModal);
+    }
+
+    const cancelPdfWatermarkBtn = document.getElementById('cancelPdfWatermarkBtn');
+    if (cancelPdfWatermarkBtn) {
+        cancelPdfWatermarkBtn.addEventListener('click', closePdfWatermarkModal);
+    }
+
+    const pdfWithoutWatermarkBtn = document.getElementById('pdfWithoutWatermarkBtn');
+    if (pdfWithoutWatermarkBtn) {
+        pdfWithoutWatermarkBtn.addEventListener('click', () => confirmPdfWatermark(false));
+    }
+
+    const pdfWithWatermarkBtn = document.getElementById('pdfWithWatermarkBtn');
+    if (pdfWithWatermarkBtn) {
+        pdfWithWatermarkBtn.addEventListener('click', () => confirmPdfWatermark(true));
+    }
+
+    ['pdfLatitudeInput', 'pdfLongitudeInput'].forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    confirmPdfWatermark(true);
+                }
+            });
+        }
+    });
     
     // Search and filter
     const searchReports = document.getElementById('searchReports');
@@ -1719,11 +1753,104 @@ async function confirmDelete() {
 }
 
 // PDF and Export functions
-async function printReport(reportId) {
+function printReport(reportId) {
+    pendingPdfReportId = reportId;
+
+    const modal = document.getElementById('pdfWatermarkModal');
+    if (!modal) {
+        // Fallback bila markup modal tidak tersedia: tetap cetak seperti biasa.
+        pendingPdfReportId = null;
+        downloadReportPdf(reportId, false);
+        return;
+    }
+
+    const latitudeInput = document.getElementById('pdfLatitudeInput');
+    const longitudeInput = document.getElementById('pdfLongitudeInput');
+    try {
+        if (latitudeInput) {
+            latitudeInput.value = localStorage.getItem(`pdfWatermarkLatitude:${reportId}`) || '';
+        }
+        if (longitudeInput) {
+            longitudeInput.value = localStorage.getItem(`pdfWatermarkLongitude:${reportId}`) || '';
+        }
+    } catch {}
+
+    modal.classList.remove('hidden');
+}
+
+function closePdfWatermarkModal() {
+    const modal = document.getElementById('pdfWatermarkModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    pendingPdfReportId = null;
+}
+
+function parsePdfCoordinate(value, type) {
+    const raw = String(value || '').trim().replace(',', '.');
+    if (!raw) return null;
+    const number = Number(raw);
+    if (!Number.isFinite(number)) return NaN;
+    const limit = type === 'latitude' ? 90 : 180;
+    if (Math.abs(number) > limit) return NaN;
+    return number;
+}
+
+function confirmPdfWatermark(withWatermark) {
+    const reportId = pendingPdfReportId;
+    let coordinates = null;
+
+    if (withWatermark) {
+        const latitudeInput = document.getElementById('pdfLatitudeInput');
+        const longitudeInput = document.getElementById('pdfLongitudeInput');
+        const latitudeText = latitudeInput ? latitudeInput.value.trim() : '';
+        const longitudeText = longitudeInput ? longitudeInput.value.trim() : '';
+
+        if (latitudeText || longitudeText) {
+            if (!latitudeText || !longitudeText) {
+                showMessage('Isi latitude dan longitude sekaligus, atau kosongkan keduanya.', 'error');
+                return;
+            }
+
+            const latitude = parsePdfCoordinate(latitudeText, 'latitude');
+            const longitude = parsePdfCoordinate(longitudeText, 'longitude');
+            if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+                showMessage('Koordinat tidak valid. Latitude -90 s.d. 90, longitude -180 s.d. 180.', 'error');
+                return;
+            }
+
+            coordinates = { latitude, longitude };
+        }
+    }
+
+    closePdfWatermarkModal();
+    if (reportId == null) return;
+    downloadReportPdf(reportId, withWatermark, coordinates);
+}
+
+async function downloadReportPdf(reportId, withWatermark = false, coordinates = null) {
     showLoading();
     
     try {
-        const response = await fetch(`${API_BASE}/pdf/report/${reportId}`, {
+        const query = new URLSearchParams();
+        if (withWatermark) {
+            query.set('watermark', '1');
+            if (coordinates) {
+                query.set('latitude', String(coordinates.latitude));
+                query.set('longitude', String(coordinates.longitude));
+                try {
+                    localStorage.setItem(`pdfWatermarkLatitude:${reportId}`, String(coordinates.latitude));
+                    localStorage.setItem(`pdfWatermarkLongitude:${reportId}`, String(coordinates.longitude));
+                } catch {}
+            } else {
+                try {
+                    localStorage.removeItem(`pdfWatermarkLatitude:${reportId}`);
+                    localStorage.removeItem(`pdfWatermarkLongitude:${reportId}`);
+                } catch {}
+            }
+        }
+        const queryString = query.toString();
+        const response = await fetch(`${API_BASE}/pdf/report/${reportId}${queryString ? `?${queryString}` : ''}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
@@ -1739,7 +1866,12 @@ async function printReport(reportId) {
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
-            showMessage('PDF berhasil didownload!', 'success');
+            showMessage(
+                withWatermark
+                    ? 'PDF dengan watermark berhasil didownload!'
+                    : 'PDF berhasil didownload!',
+                'success'
+            );
         } else {
             throw new Error('Failed to generate PDF');
         }

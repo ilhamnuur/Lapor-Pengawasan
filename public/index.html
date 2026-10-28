@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
         :root {
             --bg: #f4f6fb;
@@ -405,6 +407,63 @@
         .modal-body { padding: 22px; }
         .modal-close { width: 36px; height: 36px; border: 0; background: #f1f5f9; border-radius: 10px; display: grid; place-items: center; color: #64748b; }
         .modal-close:hover { background: #e2e8f0; color: var(--ink); }
+
+        /* Konfirmasi watermark PDF */
+        #pdfWatermarkModal, #pdfLocationModal { z-index: 70; }
+        .pdf-watermark-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .pdf-watermark-actions .btn { width: 100%; padding: 13px 12px; }
+        .pdf-watermark-cancel {
+            display: block; width: 100%; margin-top: 8px; padding: 10px;
+            border: 0; background: transparent; color: var(--muted);
+            font-size: 12px; font-weight: 700;
+        }
+        .pdf-watermark-cancel:hover { color: var(--ink); }
+
+        /* Popup tag lokasi di peta */
+        .pdf-map-search { position: relative; display: flex; gap: 8px; margin-bottom: 12px; }
+        .pdf-map-search .input { flex: 1; min-width: 0; }
+        .pdf-map-search .btn { flex: 0 0 auto; padding-left: 16px; padding-right: 16px; }
+        .pdf-map-results {
+            position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+            background: #fff; border: 1px solid var(--line); border-radius: 12px;
+            box-shadow: var(--shadow); max-height: 220px; overflow-y: auto;
+        }
+        .pdf-map-results button {
+            display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line);
+            background: #fff; padding: 10px 12px; font-size: 12px; line-height: 1.45;
+            color: var(--ink); cursor: pointer;
+        }
+        .pdf-map-results button:last-child { border-bottom: 0; }
+        .pdf-map-results button:hover { background: var(--brand-soft); }
+        .pdf-map-results .pdf-map-result-coords { display: block; margin-top: 3px; color: var(--muted); font-size: 10.5px; }
+        .pdf-map-results .pdf-map-result-state { padding: 10px 12px; font-size: 12px; color: var(--muted); }
+        .pdf-map-canvas {
+            height: 320px; width: 100%; border-radius: 14px; border: 1px solid var(--line);
+            background: #eef2ff; position: relative; z-index: 0; overflow: hidden;
+        }
+        .pdf-map-fallback {
+            height: 100%; display: grid; place-items: center; padding: 20px;
+            text-align: center; color: var(--muted); font-size: 12px; line-height: 1.6;
+        }
+        .pdf-map-status { margin: 10px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+        .pdf-map-status strong { color: var(--ink); }
+        .pdf-map-coords { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+        .pdf-map-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+        .pdf-map-actions .btn { width: 100%; padding: 12px; }
+        .pdf-map-actions .full { grid-column: 1 / -1; }
+        .pdf-map-purpose {
+            margin: 0 0 12px; padding: 10px 12px; border-radius: 12px;
+            background: var(--surface-soft); border: 1px solid var(--line);
+            font-size: 12px; line-height: 1.5; color: var(--muted);
+        }
+        .pdf-map-purpose strong { color: var(--ink); }
+        @media (max-width: 480px) {
+            .pdf-watermark-actions { grid-template-columns: 1fr; }
+            .pdf-map-coords { grid-template-columns: 1fr; }
+            .pdf-map-actions { grid-template-columns: 1fr; }
+            .pdf-map-actions .full { grid-column: auto; }
+            .pdf-map-canvas { height: 260px; }
+        }
 
         /* Detail modal content */
         #reportDetailContent .space-y-6 > div > label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
@@ -1224,6 +1283,76 @@
                     <button id="cancelDeleteBtn" class="btn btn-secondary">Batal</button>
                     <button id="confirmDeleteBtn" class="btn btn-danger">Hapus</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= PDF WATERMARK CONFIRM MODAL ================= -->
+    <div id="pdfWatermarkModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="pdfWatermarkTitle">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 id="pdfWatermarkTitle" class="modal-title">Cetak PDF Laporan</h3>
+                <button id="closePdfWatermarkModal" class="modal-close" aria-label="Tutup">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:20px;">
+                    <div style="width:44px;height:44px;flex:0 0 auto;border-radius:14px;background:var(--brand-soft);display:grid;place-items:center;color:var(--brand);">
+                        <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div>
+                        <p style="margin:0;font-size:13px;font-weight:700;line-height:1.5;">Tambahkan watermark pada foto dokumentasi?</p>
+                        <p style="margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.6;">Watermark berisi tujuan, tanggal perjalanan dinas, dan koordinat lokasi. Setelah memilih <strong>Dengan Watermark</strong>, Anda akan memilih titik lokasi presisi di peta.</p>
+                    </div>
+                </div>
+                <p class="form-hint" style="margin:0 0 18px;">Pilih <strong>Tanpa Watermark</strong> untuk hasil PDF seperti sebelumnya.</p>
+                <div class="pdf-watermark-actions">
+                    <button id="pdfWithoutWatermarkBtn" class="btn btn-secondary">Tanpa Watermark</button>
+                    <button id="pdfWithWatermarkBtn" class="btn btn-primary">Dengan Watermark</button>
+                </div>
+                <button id="cancelPdfWatermarkBtn" class="pdf-watermark-cancel">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= PDF LOCATION TAG MODAL ================= -->
+    <div id="pdfLocationModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="pdfLocationTitle">
+        <div class="modal-card wide">
+            <div class="modal-head">
+                <div>
+                    <h3 id="pdfLocationTitle" class="modal-title">Tag Lokasi Foto</h3>
+                    <p style="margin:4px 0 0;font-size:11px;color:var(--muted);">Pilih titik presisi untuk watermark PDF.</p>
+                </div>
+                <button id="closePdfLocationModal" class="modal-close" aria-label="Tutup">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="pdfLocationPurpose" class="pdf-map-purpose hidden"></p>
+                <div class="pdf-map-search">
+                    <input type="text" id="pdfLocationSearchInput" class="input" autocomplete="off" placeholder="Cari tempat atau alamat...">
+                    <button type="button" id="pdfLocationSearchBtn" class="btn btn-secondary">Cari</button>
+                    <div id="pdfLocationSearchResults" class="pdf-map-results hidden"></div>
+                </div>
+                <div id="pdfLocationMap" class="pdf-map-canvas"></div>
+                <p id="pdfLocationStatus" class="pdf-map-status">Klik peta atau geser pin untuk memilih titik lokasi.</p>
+                <div class="pdf-map-coords">
+                    <div class="form-field">
+                        <label for="pdfLatitudeInput" class="label">Latitude</label>
+                        <input type="text" id="pdfLatitudeInput" class="input" inputmode="decimal" autocomplete="off" placeholder="Contoh: -6.9237677">
+                    </div>
+                    <div class="form-field">
+                        <label for="pdfLongitudeInput" class="label">Longitude</label>
+                        <input type="text" id="pdfLongitudeInput" class="input" inputmode="decimal" autocomplete="off" placeholder="Contoh: 112.0630503">
+                    </div>
+                </div>
+                <div class="pdf-map-actions">
+                    <button type="button" id="pdfUseCurrentLocationBtn" class="btn btn-secondary full">Gunakan lokasi saat ini</button>
+                    <button type="button" id="pdfSkipLocationBtn" class="btn btn-secondary">Cetak Tanpa Koordinat</button>
+                    <button type="button" id="pdfUseLocationBtn" class="btn btn-primary">Cetak dengan Koordinat</button>
+                </div>
+                <button type="button" id="cancelPdfLocationBtn" class="pdf-watermark-cancel">Batal</button>
             </div>
         </div>
     </div>

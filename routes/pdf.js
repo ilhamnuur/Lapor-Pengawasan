@@ -14,6 +14,162 @@ const router = express.Router();
 const PDF_PHOTO_MAX_EDGE = Number(process.env.PDF_PHOTO_MAX_EDGE) || 1400;
 const PDF_PHOTO_QUALITY = Number(process.env.PDF_PHOTO_QUALITY) || 78;
 
+// Watermark foto dokumentasi bersifat opsional. Teks diambil dari isian
+// laporan dan ditempatkan di footer foto dengan gaya seperti GPS Map Camera.
+const PDF_WATERMARK_MAX_VALUE_LINES = 3;
+
+function isWatermarkRequested(value) {
+    return ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
+
+function escapeXml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ');
+}
+
+function formatWatermarkDate(value) {
+    if (!value) return '-';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+}
+
+function parseWatermarkCoordinate(value, limit) {
+    if (value === undefined || value === null || value === '') return null;
+    const normalized = String(value).trim().replace(',', '.');
+    if (!normalized) return null;
+    const number = Number(normalized);
+    if (!Number.isFinite(number) || Math.abs(number) > limit) return null;
+    return number;
+}
+
+function formatWatermarkCoordinate(latitude, longitude) {
+    const lat = parseWatermarkCoordinate(latitude, 90);
+    const lon = parseWatermarkCoordinate(longitude, 180);
+    if (lat === null || lon === null) return '';
+    const latDirection = lat < 0 ? 'S' : 'N';
+    const lonDirection = lon < 0 ? 'W' : 'E';
+    return `${Math.abs(lat).toFixed(7)}°${latDirection}, ${Math.abs(lon).toFixed(7)}°${lonDirection}`;
+}
+
+function wrapWatermarkText(value, maxChars, maxLines = PDF_WATERMARK_MAX_VALUE_LINES) {
+    const chars = Math.max(8, Number(maxChars) || 40);
+    const lineLimit = Math.max(1, Number(maxLines) || PDF_WATERMARK_MAX_VALUE_LINES);
+    const text = String(value || '-').replace(/\s+/g, ' ').trim() || '-';
+    const words = [];
+
+    text.split(' ').forEach((word) => {
+        // Kata yang sangat panjang (mis. URL) dipotong agar tidak melebar.
+        for (let index = 0; index < word.length; index += chars) {
+            words.push(word.slice(index, index + chars));
+        }
+    });
+
+    const lines = [];
+    let current = '';
+    words.forEach((word) => {
+        if (!current) {
+            current = word;
+            return;
+        }
+        if (current.length + 1 + word.length <= chars) {
+            current += ` ${word}`;
+        } else {
+            lines.push(current);
+            current = word;
+        }
+    });
+    if (current) lines.push(current);
+
+    if (lines.length > lineLimit) {
+        const visible = lines.slice(0, lineLimit);
+        const rest = lines.slice(lineLimit).join(' ');
+        let lastLine = `${visible[visible.length - 1]} ${rest}`;
+        if (lastLine.length > chars) {
+            lastLine = `${lastLine.slice(0, Math.max(1, chars - 3)).trimEnd()}...`;
+        }
+        visible[visible.length - 1] = lastLine;
+        return visible;
+    }
+
+    return lines;
+}
+
+function buildWatermarkSvg(width, height, { tujuan, tanggal, lokasi }) {
+    const safeWidth = Math.max(1, Math.round(width));
+    const safeHeight = Math.max(1, Math.round(height));
+    // Teks dibuat lebih ringkas agar foto tetap menjadi fokus utama.
+    const fontSize = Math.max(10, Math.min(24, Math.round(safeWidth * 0.019)));
+    const labelFontSize = Math.max(7, Math.round(fontSize * 0.42));
+    const dateFontSize = Math.max(9, Math.round(fontSize * 0.72));
+    const locationFontSize = Math.max(9, Math.round(fontSize * 0.74));
+    const locationLabelFontSize = Math.max(7, Math.round(fontSize * 0.38));
+    const lineHeight = Math.round(fontSize * 1.18);
+    const paddingX = Math.max(12, Math.round(safeWidth * 0.038));
+    const paddingBottom = Math.max(10, Math.round(safeHeight * 0.038));
+    const gap = Math.max(4, Math.round(fontSize * 0.3));
+    const contentWidth = Math.max(40, safeWidth - paddingX * 2);
+    const maxChars = Math.max(8, Math.floor(contentWidth / Math.max(1, fontSize * 0.54)));
+    const valueLines = wrapWatermarkText(tujuan, maxChars);
+    const dateText = formatWatermarkDate(tanggal);
+    const locationText = String(lokasi || '').replace(/\s+/g, ' ').trim();
+    const locationMaxChars = Math.max(8, Math.floor(contentWidth / Math.max(1, locationFontSize * 0.54)) - 8);
+    const locationLine = locationText ? wrapWatermarkText(locationText, locationMaxChars, 1)[0] : '';
+
+    const dateBaseline = safeHeight - paddingBottom;
+    const valueLastBaseline = dateBaseline - dateFontSize - gap * 1.5;
+    const valueFirstBaseline = valueLastBaseline - (valueLines.length - 1) * lineHeight;
+    const labelBaseline = valueFirstBaseline - lineHeight * 0.88;
+    const locationBaseline = locationLine
+        ? labelBaseline - labelFontSize - gap * 1.4
+        : null;
+    const gradientTop = Math.max(0, Math.round(
+        locationLine
+            ? locationBaseline - locationFontSize * 2.2
+            : labelBaseline - labelFontSize * 2.5
+    ));
+    const gradientHeight = Math.max(1, safeHeight - gradientTop);
+
+    const valueTspans = valueLines
+        .map((line, index) => `<tspan x="${paddingX}"${index > 0 ? ` dy="${lineHeight}"` : ''}>${escapeXml(line)}</tspan>`)
+        .join('');
+
+    const locationSvg = locationLine
+        ? `<text x="${paddingX}" y="${locationBaseline}" fill="#ffffff" font-size="${locationFontSize}" font-weight="700" letter-spacing="0.2"><tspan fill="#fbbf24" font-size="${locationLabelFontSize}" letter-spacing="${Math.max(0.6, locationLabelFontSize * 0.12).toFixed(1)}">LOKASI · </tspan>${escapeXml(locationLine)}</text>`
+        : '';
+
+    return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}">
+            <defs>
+                <linearGradient id="wmFade" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+                    <stop offset="0.45" stop-color="#000000" stop-opacity="0.58"/>
+                    <stop offset="1" stop-color="#000000" stop-opacity="0.88"/>
+                </linearGradient>
+            </defs>
+            <rect x="0" y="${gradientTop}" width="${safeWidth}" height="${gradientHeight}" fill="url(#wmFade)"/>
+            <g font-family="Arial, Helvetica, sans-serif">
+                ${locationSvg}
+                <text x="${paddingX}" y="${labelBaseline}" fill="#ffffff" fill-opacity="0.74" font-size="${labelFontSize}" font-weight="700" letter-spacing="${Math.max(0.8, labelFontSize * 0.12).toFixed(1)}">TUJUAN PERJALANAN DINAS</text>
+                <text x="${paddingX}" y="${valueFirstBaseline}" fill="#ffffff" font-size="${fontSize}" font-weight="700">${valueTspans}</text>
+                <text x="${paddingX}" y="${dateBaseline}" fill="#fbbf24" font-size="${dateFontSize}" font-weight="700" letter-spacing="0.3">
+                    <tspan fill="#ffffff" fill-opacity="0.72" font-size="${Math.max(9, Math.round(dateFontSize * 0.72))}" letter-spacing="1">TANGGAL PELAKSANAAN · </tspan>${escapeXml(dateText)}
+                </text>
+            </g>
+        </svg>
+    `;
+}
+
 let browserPromise = null;
 
 function browserOptions() {
@@ -86,7 +242,7 @@ async function renderPdf(htmlContent, pdfOptions) {
 
 // Foto diperkecil dan dikompres sebelum diubah menjadi data URI. Ini menjaga
 // ukuran HTML/PDF tetap kecil tanpa mengubah isi laporan.
-async function photoToDataUri(photoPath) {
+async function photoToDataUri(photoPath, watermark = null) {
     const absolutePath = path.resolve(photoPath);
     let imageBuffer;
     try {
@@ -97,6 +253,42 @@ async function photoToDataUri(photoPath) {
     }
 
     try {
+        // Saat watermark diminta, normalisasi foto dulu (rotasi, resize,
+        // flatten) ke PNG agar ukuran akhirnya diketahui sebelum overlay SVG
+        // dibuat. PNG dipakai sebagai buffer antara supaya foto tidak
+        // dikompresi dua kali.
+        if (watermark) {
+            try {
+                const normalized = await sharp(imageBuffer)
+                    .rotate()
+                    .resize({
+                        width: PDF_PHOTO_MAX_EDGE,
+                        height: PDF_PHOTO_MAX_EDGE,
+                        fit: 'inside',
+                        withoutEnlargement: true
+                    })
+                    .flatten({ background: '#ffffff' })
+                    .png()
+                    .toBuffer({ resolveWithObject: true });
+
+                const overlay = buildWatermarkSvg(
+                    normalized.info.width,
+                    normalized.info.height,
+                    watermark
+                );
+
+                const watermarked = await sharp(normalized.data)
+                    .composite([{ input: Buffer.from(overlay) }])
+                    .jpeg({ quality: PDF_PHOTO_QUALITY, mozjpeg: true })
+                    .toBuffer();
+
+                return `data:image/jpeg;base64,${watermarked.toString('base64')}`;
+            } catch (watermarkError) {
+                // PDF tetap harus bisa dicetak walau overlay gagal dibuat.
+                console.error(`Gagal menambahkan watermark: ${photoPath}`, watermarkError);
+            }
+        }
+
         const optimized = await sharp(imageBuffer)
             .rotate()
             .resize({
@@ -162,11 +354,30 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         const { rows: photosRows } = await pg.query('SELECT photo_path FROM report_photos WHERE report_id = $1', [id]);
         report.foto_dokumentasi = photosRows.map(photo => photo.photo_path);
         
+        const requestedLocation = Array.isArray(req.query.lokasi)
+            ? req.query.lokasi[0]
+            : req.query.lokasi;
+        const requestedLatitude = Array.isArray(req.query.latitude)
+            ? req.query.latitude[0]
+            : req.query.latitude;
+        const requestedLongitude = Array.isArray(req.query.longitude)
+            ? req.query.longitude[0]
+            : req.query.longitude;
+        const coordinateLocation = formatWatermarkCoordinate(requestedLatitude, requestedLongitude);
+        const fallbackLocation = String(requestedLocation || '').replace(/\s+/g, ' ').trim().slice(0, 255);
+        const watermark = isWatermarkRequested(req.query.watermark)
+            ? {
+                tujuan: report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '-',
+                tanggal: report.tanggal_pelaksanaan,
+                lokasi: coordinateLocation || fallbackLocation
+            }
+            : null;
+
         // Generate photos HTML for second page
         let photosHTML = '';
         if (report.foto_dokumentasi?.length > 0) {
             const photoDataUris = await Promise.all(
-                report.foto_dokumentasi.map(photoPath => photoToDataUri(photoPath))
+                report.foto_dokumentasi.map(photoPath => photoToDataUri(photoPath, watermark))
             );
 
             const photoElements = photoDataUris

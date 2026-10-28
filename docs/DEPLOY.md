@@ -386,6 +386,7 @@ uploads/                  file foto (backup terpisah dari DB)
 logs/                     log PM2
 Dockerfile                image Node 18 + Chromium untuk cetak PDF
 docker-compose.yml        jalankan app di Docker (pakai DB yang sudah ada)
+docker-compose.kasm-chrome.yml  Chrome Kasm (port 5678), lihat docs/DOCKER-KASM-CHROME.md
 ```
 
 ---
@@ -442,3 +443,17 @@ docker run -d --name lapor-pengawasan -p 3100:3100 \
 
 Di Linux/macOS, ganti `%cd%` dengan `$(pwd)`. Ukuran image sekitar 1,6 GB
 karena berisi Chromium.
+
+### 11.4 Chrome berbasis Kasm (port 5678)
+
+Bila membutuhkan Chrome yang bisa dibuka dan diklik lewat browser (bukan
+Chromium internal untuk cetak PDF), jalankan container terpisah:
+
+```bash
+# isi KASM_VNC_PW di .env lebih dulu
+docker compose -f docker-compose.kasm-chrome.yml up -d
+```
+
+Akses: `https://IP-SERVER:5678` dengan user `kasm_user`. Container ini berdiri
+sendiri dan tidak mengganggu aplikasi di port 3100. Panduan lengkap:
+`docs/DOCKER-KASM-CHROME.md`.
