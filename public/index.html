@@ -1410,6 +1410,9 @@
     <!-- Toast -->
     <div id="messageContainer"></div>
 
-    <script src="app.js"></script>
+    <!-- v= adalah cache-busting: Cloudflare memaksa Browser Cache TTL 4 jam untuk
+         aset statis, sedangkan index.html selalu revalidasi. Naikkan angka versi
+         ini setiap kali public/app.js berubah agar browser mengambil versi baru. -->
+    <script src="app.js?v=20261028-1"></script>
 </body>
 </html>
