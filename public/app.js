@@ -228,7 +228,7 @@ function setupEventListeners() {
         confirmDeleteBtn.addEventListener('click', confirmDelete);
     }
 
-    // Konfirmasi watermark sebelum mencetak PDF laporan.
+    // Konfirmasi watermark & modal tag peta lokasi sebelum mencetak PDF laporan.
     const closePdfWatermarkModalBtn = document.getElementById('closePdfWatermarkModal');
     if (closePdfWatermarkModalBtn) {
         closePdfWatermarkModalBtn.addEventListener('click', closePdfWatermarkModal);
@@ -241,23 +241,80 @@ function setupEventListeners() {
 
     const pdfWithoutWatermarkBtn = document.getElementById('pdfWithoutWatermarkBtn');
     if (pdfWithoutWatermarkBtn) {
-        pdfWithoutWatermarkBtn.addEventListener('click', () => confirmPdfWatermark(false));
+        pdfWithoutWatermarkBtn.addEventListener('click', choosePdfWithoutWatermark);
     }
 
     const pdfWithWatermarkBtn = document.getElementById('pdfWithWatermarkBtn');
     if (pdfWithWatermarkBtn) {
-        pdfWithWatermarkBtn.addEventListener('click', () => confirmPdfWatermark(true));
+        pdfWithWatermarkBtn.addEventListener('click', () => {
+            openPdfLocationModal(pendingPdfReportId);
+        });
+    }
+
+    const closePdfLocationModalBtn = document.getElementById('closePdfLocationModal');
+    if (closePdfLocationModalBtn) {
+        closePdfLocationModalBtn.addEventListener('click', closePdfLocationModal);
+    }
+
+    const cancelPdfLocationBtn = document.getElementById('cancelPdfLocationBtn');
+    if (cancelPdfLocationBtn) {
+        cancelPdfLocationBtn.addEventListener('click', closePdfLocationModal);
+    }
+
+    const pdfUseLocationBtn = document.getElementById('pdfUseLocationBtn');
+    if (pdfUseLocationBtn) {
+        pdfUseLocationBtn.addEventListener('click', () => confirmPdfLocation(true));
+    }
+
+    const pdfSkipLocationBtn = document.getElementById('pdfSkipLocationBtn');
+    if (pdfSkipLocationBtn) {
+        pdfSkipLocationBtn.addEventListener('click', () => confirmPdfLocation(false));
+    }
+
+    const pdfUseCurrentLocationBtn = document.getElementById('pdfUseCurrentLocationBtn');
+    if (pdfUseCurrentLocationBtn) {
+        pdfUseCurrentLocationBtn.addEventListener('click', useCurrentLocationForPdf);
+    }
+
+    const pdfSearchBtn = document.getElementById('pdfLocationSearchBtn');
+    const pdfSearchInput = document.getElementById('pdfLocationSearchInput');
+    if (pdfSearchBtn && pdfSearchInput) {
+        pdfSearchBtn.addEventListener('click', () => {
+            searchPdfLocation(pdfSearchInput.value);
+        });
+        pdfSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchPdfLocation(pdfSearchInput.value);
+            }
+        });
     }
 
     ['pdfLatitudeInput', 'pdfLongitudeInput'].forEach((id) => {
         const input = document.getElementById(id);
         if (input) {
+            input.addEventListener('change', () => {
+                const lat = parsePdfCoordinate(document.getElementById('pdfLatitudeInput')?.value, 'latitude');
+                const lng = parsePdfCoordinate(document.getElementById('pdfLongitudeInput')?.value, 'longitude');
+                if (lat !== null && lng !== null && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+                    setPdfMarkerPosition(lat, lng, true);
+                    if (pdfMap) pdfMap.panTo([lat, lng]);
+                }
+            });
             input.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    confirmPdfWatermark(true);
+                    confirmPdfLocation(true);
                 }
             });
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        const searchBox = document.querySelector('.pdf-map-search');
+        const resultsEl = document.getElementById('pdfLocationSearchResults');
+        if (searchBox && resultsEl && !searchBox.contains(e.target)) {
+            resultsEl.classList.add('hidden');
         }
     });
     
@@ -1753,27 +1810,20 @@ async function confirmDelete() {
 }
 
 // PDF and Export functions
+let pdfMap = null;
+let pdfMarker = null;
+let pdfSelectedLocationName = '';
+const DEFAULT_TUBAN_COORDS = { lat: -6.8944, lng: 112.0467 };
+
 function printReport(reportId) {
     pendingPdfReportId = reportId;
 
     const modal = document.getElementById('pdfWatermarkModal');
     if (!modal) {
-        // Fallback bila markup modal tidak tersedia: tetap cetak seperti biasa.
         pendingPdfReportId = null;
         downloadReportPdf(reportId, false);
         return;
     }
-
-    const latitudeInput = document.getElementById('pdfLatitudeInput');
-    const longitudeInput = document.getElementById('pdfLongitudeInput');
-    try {
-        if (latitudeInput) {
-            latitudeInput.value = localStorage.getItem(`pdfWatermarkLatitude:${reportId}`) || '';
-        }
-        if (longitudeInput) {
-            longitudeInput.value = localStorage.getItem(`pdfWatermarkLongitude:${reportId}`) || '';
-        }
-    } catch {}
 
     modal.classList.remove('hidden');
 }
@@ -1783,7 +1833,269 @@ function closePdfWatermarkModal() {
     if (modal) {
         modal.classList.add('hidden');
     }
+}
+
+function choosePdfWithoutWatermark() {
+    const reportId = pendingPdfReportId;
+    closePdfWatermarkModal();
     pendingPdfReportId = null;
+    if (reportId != null) {
+        downloadReportPdf(reportId, false);
+    }
+}
+
+function openPdfLocationModal(reportId) {
+    closePdfWatermarkModal();
+    pendingPdfReportId = reportId;
+
+    const modal = document.getElementById('pdfLocationModal');
+    if (!modal) {
+        downloadReportPdf(reportId, true);
+        return;
+    }
+
+    modal.classList.remove('hidden');
+
+    const searchInput = document.getElementById('pdfLocationSearchInput');
+    if (searchInput) searchInput.value = '';
+    const searchResults = document.getElementById('pdfLocationSearchResults');
+    if (searchResults) {
+        searchResults.classList.add('hidden');
+        searchResults.innerHTML = '';
+    }
+
+    const purposeEl = document.getElementById('pdfLocationPurpose');
+    if (purposeEl) {
+        const report = (Array.isArray(reports) ? reports : []).find(r => String(r.id) === String(reportId));
+        const tujuan = report ? (report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '') : '';
+        if (tujuan) {
+            purposeEl.innerHTML = '<strong>Tujuan Kegiatan:</strong> ' + escapeHtml(tujuan);
+            purposeEl.classList.remove('hidden');
+        } else {
+            purposeEl.classList.add('hidden');
+        }
+    }
+
+    let initialLat = null;
+    let initialLng = null;
+    try {
+        const savedLat = localStorage.getItem('pdfWatermarkLatitude:' + reportId) || localStorage.getItem('pdfWatermarkLastLat');
+        const savedLng = localStorage.getItem('pdfWatermarkLongitude:' + reportId) || localStorage.getItem('pdfWatermarkLastLng');
+        if (savedLat && savedLng) {
+            const parsedLat = parseFloat(savedLat);
+            const parsedLng = parseFloat(savedLng);
+            if (!Number.isNaN(parsedLat) && !Number.isNaN(parsedLng)) {
+                initialLat = parsedLat;
+                initialLng = parsedLng;
+            }
+        }
+    } catch {}
+
+    if (initialLat === null || initialLng === null) {
+        initialLat = DEFAULT_TUBAN_COORDS.lat;
+        initialLng = DEFAULT_TUBAN_COORDS.lng;
+    }
+
+    initPdfMap(initialLat, initialLng);
+}
+
+function closePdfLocationModal() {
+    const modal = document.getElementById('pdfLocationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    const searchResults = document.getElementById('pdfLocationSearchResults');
+    if (searchResults) {
+        searchResults.classList.add('hidden');
+        searchResults.innerHTML = '';
+    }
+    pendingPdfReportId = null;
+}
+
+function initPdfMap(lat, lng) {
+    const mapContainer = document.getElementById('pdfLocationMap');
+    if (!mapContainer || typeof L === 'undefined') return;
+
+    if (L.Icon && L.Icon.Default) {
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+        });
+    }
+
+    if (!pdfMap) {
+        pdfMap = L.map(mapContainer).setView([lat, lng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(pdfMap);
+
+        pdfMap.on('click', (e) => {
+            setPdfMarkerPosition(e.latlng.lat, e.latlng.lng, true);
+        });
+    } else {
+        pdfMap.setView([lat, lng], 14);
+    }
+
+    setPdfMarkerPosition(lat, lng, true);
+
+    setTimeout(() => {
+        if (pdfMap) {
+            pdfMap.invalidateSize();
+        }
+    }, 250);
+}
+
+function setPdfMarkerPosition(lat, lng, shouldReverseGeocode = true) {
+    const numLat = Number(lat);
+    const numLng = Number(lng);
+    if (!Number.isFinite(numLat) || !Number.isFinite(numLng)) return;
+
+    const latInput = document.getElementById('pdfLatitudeInput');
+    const lngInput = document.getElementById('pdfLongitudeInput');
+    if (latInput) latInput.value = numLat.toFixed(7);
+    if (lngInput) lngInput.value = numLng.toFixed(7);
+
+    const pos = [numLat, numLng];
+
+    if (!pdfMarker) {
+        pdfMarker = L.marker(pos, { draggable: true }).addTo(pdfMap);
+        pdfMarker.on('dragend', () => {
+            const currentPos = pdfMarker.getLatLng();
+            setPdfMarkerPosition(currentPos.lat, currentPos.lng, true);
+        });
+    } else {
+        pdfMarker.setLatLng(pos);
+    }
+
+    if (pdfMap && !pdfMap.getBounds().contains(pos)) {
+        pdfMap.panTo(pos);
+    }
+
+    if (shouldReverseGeocode) {
+        reverseGeocodePdfLocation(numLat, numLng);
+    }
+}
+
+async function reverseGeocodePdfLocation(lat, lng) {
+    const statusEl = document.getElementById('pdfLocationStatus');
+    if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--brand);"><svg style="display:inline-block;vertical-align:middle;animation:spin 1s linear infinite;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="30" stroke-linecap="round"></circle></svg> Mendeteksi alamat...</span>';
+    }
+
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        if (!res.ok) throw new Error('Geocoding response not ok');
+        const data = await res.json();
+        const addr = data.address || {};
+        const village = addr.village || addr.suburb || addr.neighbourhood || '';
+        const town = addr.city_district || addr.town || addr.municipality || '';
+        const city = addr.city || addr.regency || addr.county || 'Tuban';
+        const province = addr.state || 'Jawa Timur';
+        const parts = [village, town, city, province].filter(Boolean);
+        pdfSelectedLocationName = parts.length > 0 ? parts.join(', ') : (data.display_name || '');
+
+        if (statusEl) {
+            statusEl.innerHTML = '<strong>Lokasi:</strong> ' + escapeHtml(pdfSelectedLocationName) + ' <span style="font-size:11px;color:var(--muted);">(' + lat.toFixed(6) + ', ' + lng.toFixed(6) + ')</span>';
+        }
+    } catch (err) {
+        console.warn('Reverse geocode error:', err);
+        pdfSelectedLocationName = '';
+        if (statusEl) {
+            statusEl.innerHTML = 'Titik terpilih: <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> (geser pin atau klik peta untuk menyesuaikan).';
+        }
+    }
+}
+
+async function searchPdfLocation(query) {
+    const trimmed = String(query || '').trim();
+    const resultsContainer = document.getElementById('pdfLocationSearchResults');
+    if (!resultsContainer) return;
+
+    if (!trimmed) {
+        resultsContainer.classList.add('hidden');
+        resultsContainer.innerHTML = '';
+        return;
+    }
+
+    resultsContainer.innerHTML = '<div class="pdf-map-result-state">Mencari "' + escapeHtml(trimmed) + '"...</div>';
+    resultsContainer.classList.remove('hidden');
+
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}&limit=5`);
+        if (!res.ok) throw new Error('Search failed');
+        const list = await res.json();
+
+        if (!list || list.length === 0) {
+            resultsContainer.innerHTML = '<div class="pdf-map-result-state">Lokasi tidak ditemukan. Coba kata kunci lain.</div>';
+            return;
+        }
+
+        resultsContainer.innerHTML = '';
+        list.forEach((item) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+            btn.innerHTML = '<div>' + escapeHtml(item.display_name) + '</div><span class="pdf-map-result-coords">Koordinat: ' + lat.toFixed(6) + ', ' + lon.toFixed(6) + '</span>';
+            btn.addEventListener('click', () => {
+                resultsContainer.classList.add('hidden');
+                resultsContainer.innerHTML = '';
+                const searchInput = document.getElementById('pdfLocationSearchInput');
+                if (searchInput) searchInput.value = item.display_name;
+
+                pdfSelectedLocationName = item.display_name;
+                if (pdfMap) {
+                    pdfMap.setView([lat, lon], 15);
+                }
+                setPdfMarkerPosition(lat, lon, false);
+
+                const statusEl = document.getElementById('pdfLocationStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = '<strong>Lokasi:</strong> ' + escapeHtml(item.display_name) + ' <span style="font-size:11px;color:var(--muted);">(' + lat.toFixed(6) + ', ' + lon.toFixed(6) + ')</span>';
+                }
+            });
+            resultsContainer.appendChild(btn);
+        });
+    } catch (err) {
+        console.error('Search error:', err);
+        resultsContainer.innerHTML = '<div class="pdf-map-result-state">Gagal mencari tempat. Periksa koneksi internet.</div>';
+    }
+}
+
+function useCurrentLocationForPdf() {
+    if (!navigator.geolocation) {
+        showMessage('Fitur geolokasi tidak didukung oleh browser Anda.', 'error');
+        return;
+    }
+
+    const statusEl = document.getElementById('pdfLocationStatus');
+    if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--brand);"><svg style="display:inline-block;vertical-align:middle;animation:spin 1s linear infinite;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="30" stroke-linecap="round"></circle></svg> Mendeteksi lokasi GPS perangkat...</span>';
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const { latitude, longitude } = position.coords;
+            if (pdfMap) {
+                pdfMap.setView([latitude, longitude], 16);
+            }
+            setPdfMarkerPosition(latitude, longitude, true);
+            showMessage('Lokasi GPS saat ini berhasil diterapkan!', 'success');
+        },
+        (error) => {
+            console.warn('Geolocation error:', error);
+            showMessage('Tidak dapat mengakses lokasi perangkat. Pastikan izin GPS aktif.', 'error');
+            const lat = parsePdfCoordinate(document.getElementById('pdfLatitudeInput')?.value, 'latitude');
+            const lng = parsePdfCoordinate(document.getElementById('pdfLongitudeInput')?.value, 'longitude');
+            if (lat !== null && lng !== null && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+                reverseGeocodePdfLocation(lat, lng);
+            }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
 }
 
 function parsePdfCoordinate(value, type) {
@@ -1796,36 +2108,50 @@ function parsePdfCoordinate(value, type) {
     return number;
 }
 
-function confirmPdfWatermark(withWatermark) {
+function confirmPdfLocation(withCoordinates) {
     const reportId = pendingPdfReportId;
-    let coordinates = null;
-
-    if (withWatermark) {
-        const latitudeInput = document.getElementById('pdfLatitudeInput');
-        const longitudeInput = document.getElementById('pdfLongitudeInput');
-        const latitudeText = latitudeInput ? latitudeInput.value.trim() : '';
-        const longitudeText = longitudeInput ? longitudeInput.value.trim() : '';
-
-        if (latitudeText || longitudeText) {
-            if (!latitudeText || !longitudeText) {
-                showMessage('Isi latitude dan longitude sekaligus, atau kosongkan keduanya.', 'error');
-                return;
-            }
-
-            const latitude = parsePdfCoordinate(latitudeText, 'latitude');
-            const longitude = parsePdfCoordinate(longitudeText, 'longitude');
-            if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
-                showMessage('Koordinat tidak valid. Latitude -90 s.d. 90, longitude -180 s.d. 180.', 'error');
-                return;
-            }
-
-            coordinates = { latitude, longitude };
-        }
+    if (reportId == null) {
+        closePdfLocationModal();
+        return;
     }
 
-    closePdfWatermarkModal();
-    if (reportId == null) return;
-    downloadReportPdf(reportId, withWatermark, coordinates);
+    if (!withCoordinates) {
+        closePdfLocationModal();
+        downloadReportPdf(reportId, true, null);
+        return;
+    }
+
+    const latInput = document.getElementById('pdfLatitudeInput');
+    const lngInput = document.getElementById('pdfLongitudeInput');
+    const latText = latInput ? latInput.value.trim() : '';
+    const lngText = lngInput ? lngInput.value.trim() : '';
+
+    if (!latText || !lngText) {
+        showMessage('Pilih titik lokasi di peta terlebih dahulu.', 'error');
+        return;
+    }
+
+    const latitude = parsePdfCoordinate(latText, 'latitude');
+    const longitude = parsePdfCoordinate(lngText, 'longitude');
+
+    if (Number.isNaN(latitude) || Number.isNaN(longitude) || latitude === null || longitude === null) {
+        showMessage('Koordinat tidak valid. Latitude -90 s.d. 90, Longitude -180 s.d. 180.', 'error');
+        return;
+    }
+
+    try {
+        localStorage.setItem('pdfWatermarkLatitude:' + reportId, String(latitude));
+        localStorage.setItem('pdfWatermarkLongitude:' + reportId, String(longitude));
+        localStorage.setItem('pdfWatermarkLastLat', String(latitude));
+        localStorage.setItem('pdfWatermarkLastLng', String(longitude));
+    } catch {}
+
+    closePdfLocationModal();
+    downloadReportPdf(reportId, true, {
+        latitude,
+        longitude,
+        locationName: pdfSelectedLocationName
+    });
 }
 
 async function downloadReportPdf(reportId, withWatermark = false, coordinates = null) {
@@ -1835,18 +2161,12 @@ async function downloadReportPdf(reportId, withWatermark = false, coordinates = 
         const query = new URLSearchParams();
         if (withWatermark) {
             query.set('watermark', '1');
-            if (coordinates) {
+            if (coordinates && coordinates.latitude != null && coordinates.longitude != null) {
                 query.set('latitude', String(coordinates.latitude));
                 query.set('longitude', String(coordinates.longitude));
-                try {
-                    localStorage.setItem(`pdfWatermarkLatitude:${reportId}`, String(coordinates.latitude));
-                    localStorage.setItem(`pdfWatermarkLongitude:${reportId}`, String(coordinates.longitude));
-                } catch {}
-            } else {
-                try {
-                    localStorage.removeItem(`pdfWatermarkLatitude:${reportId}`);
-                    localStorage.removeItem(`pdfWatermarkLongitude:${reportId}`);
-                } catch {}
+                if (coordinates.locationName) {
+                    query.set('lokasi', String(coordinates.locationName));
+                }
             }
         }
         const queryString = query.toString();

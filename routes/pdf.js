@@ -365,11 +365,17 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
             : req.query.longitude;
         const coordinateLocation = formatWatermarkCoordinate(requestedLatitude, requestedLongitude);
         const fallbackLocation = String(requestedLocation || '').replace(/\s+/g, ' ').trim().slice(0, 255);
+        let displayLocation = '';
+        if (fallbackLocation && coordinateLocation) {
+            displayLocation = fallbackLocation + ' (' + coordinateLocation + ')';
+        } else {
+            displayLocation = coordinateLocation || fallbackLocation;
+        }
         const watermark = isWatermarkRequested(req.query.watermark)
             ? {
                 tujuan: report.tujuan_perjalanan_dinas || report.kegiatan_pengawasan || '-',
                 tanggal: report.tanggal_pelaksanaan,
-                lokasi: coordinateLocation || fallbackLocation
+                lokasi: displayLocation
             }
             : null;
 
